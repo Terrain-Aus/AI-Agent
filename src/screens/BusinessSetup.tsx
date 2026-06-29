@@ -37,6 +37,7 @@ export default function BusinessSetup() {
   const updateBusiness = useStore((s) => s.updateBusiness)
   const [stepIdx, setStepIdx] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
 
   const step = STEPS[stepIdx]
   const isFirstRun = !business.configured
@@ -53,14 +54,17 @@ export default function BusinessSetup() {
     if (isLast) {
       const firstTime = isFirstRun
       updateBusiness({ configured: true })
-      // After first-time setup, flow straight into a quote so the contractor
-      // immediately sees their rates in action. Editing later returns home.
-      navigate(firstTime ? '/new' : '/', firstTime ? { state: { justConfigured: true } } : undefined)
+      // First-time setup ends on a "Business ready" summary; editing later
+      // just saves and returns home.
+      if (firstTime) setDone(true)
+      else navigate('/')
     } else {
       setStepIdx((i) => Math.min(STEPS.length - 1, i + 1))
       setOpenId(null)
     }
   }
+
+  if (done) return <BusinessReady onStart={() => navigate('/new', { state: { justConfigured: true } })} onReview={() => setDone(false)} />
 
   return (
     <div className="pb-28">
@@ -325,6 +329,53 @@ export default function BusinessSetup() {
             {isLast ? <IconCheck size={16} /> : <IconArrow size={16} />}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────── Business ready — setup complete ─────────────── */
+function BusinessReady({ onStart, onReview }: { onStart: () => void; onReview: () => void }) {
+  const business = useStore((s) => s.business)
+  const rows: { icon: typeof IconHard; label: string; value: string }[] = [
+    { icon: IconHard, label: 'Crew', value: `${business.labourRoles.length} ${business.labourRoles.length === 1 ? 'person' : 'people'}` },
+    { icon: IconPlant, label: 'Equipment', value: `${business.plant.length} machine${business.plant.length === 1 ? '' : 's'}` },
+    { icon: IconCube, label: 'Materials', value: business.materials.length ? 'Supplier costs set' : 'None added' },
+    { icon: IconUsers, label: 'Subcontractors', value: business.subcontractors.length ? 'Configured' : 'None added' },
+    { icon: IconReceipt, label: 'Pricing', value: 'Every quote uses your profile' },
+  ]
+  return (
+    <div className="flex min-h-[calc(100vh-9rem)] flex-col items-center justify-center px-1 pb-28 pt-6">
+      <div className="w-full max-w-md">
+        <div className="mb-5 flex flex-col items-center text-center">
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-sage-500/15 text-sage-400 shadow-glow">
+            <IconCheck size={30} />
+          </div>
+          <h1 className="text-xl font-extrabold text-slate-100">Business ready</h1>
+          <p className="mt-1 text-sm text-slate-400">Your profile is live and pricing every quote.</p>
+        </div>
+
+        <div className="card divide-y divide-ink-400 overflow-hidden p-0">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-center gap-3 px-4 py-3">
+              <r.icon size={17} className="shrink-0 text-slate-500" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{r.label}</div>
+                <div className="truncate text-sm text-slate-200">{r.value}</div>
+              </div>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sage-500/15 text-sage-400">
+                <IconCheck size={12} />
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={onStart} className="btn-primary mt-5 w-full">
+          Start first quote <IconArrow size={18} />
+        </button>
+        <button onClick={onReview} className="mt-2 w-full py-2 text-center text-xs font-semibold text-slate-500 hover:text-slate-300">
+          Review my profile
+        </button>
       </div>
     </div>
   )

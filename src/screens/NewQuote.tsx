@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { IconArrow, IconBrain, IconCheck, IconHard, IconSpark } from '../components/icons'
+import { IconArrow, IconBrain, IconHard, IconSpark } from '../components/icons'
 import { parseDescription, buildSpec, openingLine, TRADE_LABELS } from '../engine/apprentice'
 import { JOB_TYPE_LABELS } from '../engine/pricing'
 
@@ -14,13 +14,11 @@ const EXAMPLES = [
 
 export default function NewQuote() {
   const navigate = useNavigate()
-  const location = useLocation()
   const createQuote = useStore((s) => s.createQuote)
   const addMessage = useStore((s) => s.addMessage)
   const configured = useStore((s) => s.business.configured)
   const [text, setText] = useState('')
   const [client, setClient] = useState('')
-  const justConfigured = (location.state as { justConfigured?: boolean } | null)?.justConfigured === true
 
   const start = (description: string) => {
     const spec = buildSpec(parseDescription(description))
@@ -33,18 +31,6 @@ export default function NewQuote() {
 
   return (
     <div className="space-y-3">
-      {/* One-time confirmation straight after finishing Business setup */}
-      {justConfigured && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-sage-500/40 bg-sage-500/[0.1] p-3 animate-fade-up">
-          <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage-500/25 text-sage-400">
-            <IconCheck size={14} />
-          </div>
-          <p className="text-xs leading-relaxed text-slate-200">
-            <span className="font-semibold text-sage-400">You're set up.</span> Your rates are live — this quote (and every one after) is priced with them. Describe a job to see it in action.
-          </p>
-        </div>
-      )}
-
       <div className="flex items-center gap-2 pt-1">
         <IconBrain size={18} className="text-sage-400" />
         <h1 className="text-lg font-extrabold text-slate-100">New quote</h1>
