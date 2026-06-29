@@ -4,7 +4,6 @@ import { useStore } from '../store/useStore'
 import { IconArrow, IconBrain, IconSpark } from '../components/icons'
 import { parseDescription, buildSpec, openingLine, TRADE_LABELS } from '../engine/apprentice'
 import { JOB_TYPE_LABELS } from '../engine/pricing'
-import { uid } from '../lib/format'
 
 const EXAMPLES = [
   '80m² exposed aggregate driveway in Mt Isa, needs prep and boxing.',
@@ -23,7 +22,7 @@ export default function NewQuote() {
   const start = (description: string) => {
     const spec = buildSpec(parseDescription(description))
     const q = createQuote({ spec, client, title: 'New Quote' })
-    addMessage(q.id, { id: uid('m_'), role: 'apprentice', text: openingLine(spec), ts: Date.now() })
+    addMessage(q.id, { id: 'seed-opening', role: 'apprentice', text: openingLine(spec), ts: Date.now() })
     navigate(`/quote/${q.id}/chat`)
   }
 

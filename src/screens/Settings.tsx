@@ -1,15 +1,23 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Card, SectionTitle } from '../components/ui'
 import { IconLogout, IconSettings } from '../components/icons'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { aiProvider, isLiveAI } from '../lib/ai'
+import { apprenticeHealth } from '../lib/apprenticeClient'
+import type { ApprenticeHealth } from '../lib/apprenticeProtocol'
 
 export default function Settings() {
   const navigate = useNavigate()
   const profile = useStore((s) => s.profile)
   const updateProfile = useStore((s) => s.updateProfile)
   const logout = useStore((s) => s.logout)
+  const [ai, setAi] = useState<ApprenticeHealth | null>(null)
+  useEffect(() => {
+    apprenticeHealth().then(setAi)
+  }, [])
+  const isLiveAI = ai?.live === true
+  const aiProvider = ai?.provider ?? 'local'
 
   return (
     <div className="space-y-5">
@@ -50,10 +58,9 @@ export default function Settings() {
           />
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
-          Add <code className="rounded bg-ink-500 px-1 text-slate-300">VITE_SUPABASE_URL</code> /{' '}
-          <code className="rounded bg-ink-500 px-1 text-slate-300">VITE_SUPABASE_ANON_KEY</code> and{' '}
-          <code className="rounded bg-ink-500 px-1 text-slate-300">VITE_AI_PROVIDER</code> to your{' '}
-          <code className="rounded bg-ink-500 px-1 text-slate-300">.env</code> to switch these on. See the README.
+          Set <code className="rounded bg-ink-500 px-1 text-slate-300">OPENAI_API_KEY</code> (server-side, never
+          shipped to the browser) to switch the apprentice to a live streaming model, and{' '}
+          <code className="rounded bg-ink-500 px-1 text-slate-300">VITE_SUPABASE_*</code> for cloud sync. See the README.
         </p>
       </Card>
 

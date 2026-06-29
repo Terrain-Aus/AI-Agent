@@ -9,9 +9,15 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
-# tsc -b emitted config artifacts
+# tsc emitted artifacts (sources are .ts; keep the one real ambient decl)
 vite.config.js
 vite.config.d.ts
+server/**/*.js
+server/**/*.d.ts
+src/engine/*.js
+src/engine/*.d.ts
+src/lib/apprenticeProtocol.js
+src/lib/apprenticeProtocol.d.ts
 
 # Env
 .env

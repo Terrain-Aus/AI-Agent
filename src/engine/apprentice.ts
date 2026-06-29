@@ -1,7 +1,8 @@
 // The AI Apprentice's local "brain": parse a rough job description, work out
 // what's missing, and ask switched-on, trade-focused questions. This runs
 // fully offline and deterministically so the app works without an API key.
-// When VITE_AI_PROVIDER is configured, src/lib/ai.ts can override/augment this.
+// When OPENAI_API_KEY is set, the server proxy (server/apprentice.ts) takes over
+// with a live streaming model and this on-device flow becomes the fallback.
 
 import type { Finish, JobSpec, JobType, SoilType, Trade } from './types'
 import { DEFAULT_THICKNESS, LOCATIONS, resolveLocation } from './pricing'

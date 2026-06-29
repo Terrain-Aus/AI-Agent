@@ -1,15 +1,19 @@
-// AI Apprentice as a slide-up drawer over the quote workspace.
-// Keeps the whole quoting flow on one screen — no full-page navigation.
+// AI Apprentice slide-up drawer. Same UI either way; the brain behind it is
+// either the live server LLM (OpenAI Responses API, streamed) or the on-device
+// deterministic flow when no provider is configured.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { nextQuestions, parseDescription } from '../engine/apprentice'
-import type { ChatMessage } from '../engine/types'
+import type { ChatMessage, Quote } from '../engine/types'
 import { uid } from '../lib/format'
 import { IconBrain, IconCheck, IconSend } from './icons'
 import { Logo, Progress } from './ui'
-import { isLiveAI } from '../lib/ai'
 import BottomSheet from './BottomSheet'
+import { apprenticeHealth, streamApprentice } from '../lib/apprenticeClient'
+import type { ApprenticeContext, ApprenticeHealth, PayloadMessage } from '../lib/apprenticeProtocol'
+import type { BusinessProfile } from '../store/useStore'
+import type { RateBook } from '../engine/pricing'
 
 const READY_TEXT =
   "Righto, I've got enough to price this properly. Hit the button and I'll crunch the numbers — low, expected and high, with the hidden costs flagged. Don't send it before you read those."
@@ -26,26 +30,40 @@ export default function ApprenticeDrawer({
   onEstimated: () => void
 }) {
   const quote = useStore((s) => s.getQuote(id))
+  const profile = useStore((s) => s.profile)
+  const ratebook = useStore((s) => s.ratebook)
+  const quotes = useStore((s) => s.quotes)
   const updateSpec = useStore((s) => s.updateSpec)
   const addMessage = useStore((s) => s.addMessage)
+  const updateMessage = useStore((s) => s.updateMessage)
   const runEstimate = useStore((s) => s.runEstimate)
 
+  const [health, setHealth] = useState<ApprenticeHealth | null>(null)
   const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [streamingId, setStreamingId] = useState<string | null>(null)
   const [answered, setAnswered] = useState<Set<string>>(new Set())
-  const [typing, setTyping] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const scheduledRef = useRef<string | null>(null)
+  const kickedRef = useRef(false)
 
+  const live = health?.live === true
+
+  // Resolve which brain to use, once.
+  useEffect(() => {
+    apprenticeHealth().then(setHealth)
+  }, [])
+
+  // ---- LOCAL (on-device) question scheduler — only when not live ----
   const pending = useMemo(
-    () => (quote ? nextQuestions(quote.spec).filter((q) => !answered.has(q.id)) : []),
-    [quote, answered],
+    () => (quote && health && !live ? nextQuestions(quote.spec).filter((q) => !answered.has(q.id)) : []),
+    [quote, answered, health, live],
   )
   const current = pending[0]
-  const progress = ((6 - pending.length) / 6) * 100
 
-  // Post the next apprentice message when due (typing is not a dep — see notes).
   useEffect(() => {
-    if (!open || !quote) return
+    if (!open || !quote || !health || live) return
     const last = quote.chat[quote.chat.length - 1]
     let needPost: boolean
     if (current) {
@@ -57,16 +75,16 @@ export default function ApprenticeDrawer({
     }
     const target = current ? current.id : 'ready'
     if (!needPost) {
-      setTyping(false)
+      setBusy(false)
       return
     }
     if (scheduledRef.current === target) return
     scheduledRef.current = target
-    setTyping(true)
+    setBusy(true)
     const t = setTimeout(() => {
       if (current) addMessage(id, { id: uid('m_'), role: 'apprentice', text: current.text, chips: current.chips, ts: Date.now() })
       else addMessage(id, { id: 'ready', role: 'apprentice', text: READY_TEXT, ts: Date.now() })
-      setTyping(false)
+      setBusy(false)
       scheduledRef.current = null
     }, 480)
     return () => {
@@ -74,19 +92,110 @@ export default function ApprenticeDrawer({
       scheduledRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote, current, id, addMessage])
+  }, [open, quote, current, id, addMessage, health, live])
+
+  // ---- LIVE kickoff: let the model ask the first question on open ----
+  useEffect(() => {
+    if (!open || !quote || !live || kickedRef.current) return
+    const hasUserTurn = quote.chat.some((m) => m.role === 'user')
+    const hasModelTurn = quote.chat.some((m) => m.role === 'apprentice' && m.id !== 'seed-opening')
+    if (!hasUserTurn && !hasModelTurn) {
+      kickedRef.current = true
+      void runLive()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, quote, live])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [quote?.chat.length, typing])
+  }, [quote?.chat.length, busy, streamingId])
 
   if (!quote) return null
 
+  const buildContext = (): ApprenticeContext => ({
+    rawDescription: quote.spec.rawDescription || quote.title,
+    spec: quote.spec,
+    ratebook: ratebook as RateBook,
+    prefs: {
+      businessName: (profile as BusinessProfile).businessName,
+      defaultMarginPct: ratebook.defaultMarginPct,
+      region: quote.spec.location || undefined,
+    },
+    priorQuotes: quotes
+      .filter((q) => q.id !== id && q.estimate)
+      .slice(0, 8)
+      .map((q: Quote) => ({
+        jobType: q.spec.jobType,
+        finish: q.spec.finish,
+        area: q.spec.area,
+        location: q.spec.location,
+        expected: q.estimate!.expected,
+        perM2: q.spec.area ? Math.round(q.estimate!.expected / q.spec.area) : 0,
+        status: q.status,
+        hiddenCostTitles: q.estimate!.hiddenCosts.map((h) => h.title),
+      })),
+  })
+
+  const payloadMessages = (): PayloadMessage[] => {
+    const turns: PayloadMessage[] = [{ role: 'user', content: `Job: ${quote.spec.rawDescription || quote.title}` }]
+    for (const m of quote.chat) {
+      if (m.role === 'user') turns.push({ role: 'user', content: m.text })
+      else if (m.role === 'apprentice' && m.id !== 'seed-opening' && m.text.trim()) turns.push({ role: 'assistant', content: m.text })
+    }
+    return turns
+  }
+
+  // Run one live turn: stream the apprentice's reply into a fresh bubble.
+  async function runLive() {
+    setBusy(true)
+    let placeholderId: string | null = null
+    let acc = ''
+    const ensure = () => {
+      if (!placeholderId) {
+        placeholderId = uid('m_')
+        addMessage(id, { id: placeholderId, role: 'apprentice', text: '', ts: Date.now() })
+        setStreamingId(placeholderId)
+      }
+    }
+    try {
+      await streamApprentice({ quoteId: id, messages: payloadMessages(), context: buildContext() }, (ev) => {
+        if (ev.type === 'text') {
+          ensure()
+          acc += ev.delta
+          updateMessage(id, placeholderId!, { text: acc })
+        } else if (ev.type === 'chips') {
+          ensure()
+          updateMessage(id, placeholderId!, { chips: ev.chips })
+        } else if (ev.type === 'spec') {
+          updateSpec(id, ev.patch)
+        } else if (ev.type === 'ready') {
+          setReady(true)
+        } else if (ev.type === 'error') {
+          if (!acc && !placeholderId) {
+            // Live brain unavailable — fall back to the on-device flow.
+            setHealth({ live: false, provider: 'local' })
+          }
+        }
+      })
+    } catch {
+      if (!acc) setHealth({ live: false, provider: 'local' })
+    } finally {
+      setStreamingId(null)
+      setBusy(false)
+    }
+  }
+
   const send = (raw: string) => {
     const text = raw.trim()
-    if (!text) return
+    if (!text || busy) return
     addMessage(id, { id: uid('m_'), role: 'user', text, ts: Date.now() })
     setInput('')
+
+    if (live) {
+      void runLive()
+      return
+    }
+    // Local flow.
     if (current) {
       updateSpec(id, current.apply(quote.spec, text))
       setAnswered((s) => new Set(s).add(current.id))
@@ -101,6 +210,9 @@ export default function ApprenticeDrawer({
     onClose()
   }
 
+  const showCrunch = (live ? ready : !current) && !busy
+  const showTyping = busy && !streamingId
+
   return (
     <BottomSheet
       open={open}
@@ -114,7 +226,7 @@ export default function ApprenticeDrawer({
           AI Apprentice
         </span>
       }
-      subtitle={`${isLiveAI ? 'Live model' : 'On-device'} · stops you underquoting`}
+      subtitle={`${live ? 'Live model' : 'On-device'} · stops you underquoting`}
       footer={
         <form
           onSubmit={(e) => {
@@ -125,26 +237,26 @@ export default function ApprenticeDrawer({
         >
           <input
             className="input flex-1"
-            placeholder={current ? 'Type your answer…' : 'Add anything else…'}
+            placeholder={busy ? 'Apprentice is typing…' : 'Type your answer…'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
-          <button type="submit" className="btn-primary !px-3.5" disabled={!input.trim()}>
+          <button type="submit" className="btn-primary !px-3.5" disabled={!input.trim() || busy}>
             <IconSend size={18} />
           </button>
         </form>
       }
     >
       <div className="sticky top-0 z-10 -mx-4 mb-3 bg-ink-700/95 px-4 pb-2 pt-1 backdrop-blur">
-        <Progress value={progress} />
+        <Progress value={live ? (ready ? 100 : busy ? 60 : 30) : ((6 - pending.length) / 6) * 100} />
       </div>
 
       <div ref={scrollRef} className="space-y-3">
         {quote.chat.map((m) => (
-          <Bubble key={m.id} msg={m} onChip={send} disabled={m !== lastApprentice(quote.chat)} />
+          <Bubble key={m.id} msg={m} onChip={send} disabled={busy || m !== lastApprentice(quote.chat)} />
         ))}
-        {typing && <TypingBubble />}
-        {!current && !typing && (
+        {showTyping && <TypingBubble />}
+        {showCrunch && (
           <button onClick={generate} className="btn-primary mt-1 w-full animate-fade-up">
             <IconCheck size={18} /> Crunch the numbers
           </button>
@@ -173,7 +285,7 @@ function Bubble({ msg, onChip, disabled }: { msg: ChatMessage; onChip: (c: strin
             isUser ? 'rounded-br-sm bg-sage-500 text-ink-900' : 'rounded-bl-sm border border-ink-400 bg-ink-600 text-slate-200'
           }`}
         >
-          {msg.text}
+          {msg.text || '…'}
         </div>
         {!isUser && msg.chips && msg.chips.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">

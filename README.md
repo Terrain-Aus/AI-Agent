@@ -62,9 +62,58 @@ stays usable on a phone on site.
 - **React Router** — screen navigation
 - **jsPDF** — client-side quote & invoice generation
 - **Supabase-ready** data layer (`src/lib/supabase.ts`)
-- **AI-provider-ready** apprentice (`src/lib/ai.ts`) — Claude or OpenAI, with a fully-working offline fallback
+- **Real streaming AI Apprentice** via the **OpenAI Responses API**, behind a server-side proxy, with a deterministic on-device fallback
 
-The app runs **100% offline** out of the box: a deterministic on-device estimation engine and a rule-based apprentice mean you can demo the whole workflow with **no API keys and no backend**. Supabase and a live LLM are drop-in upgrades, not requirements.
+The app runs **100% offline** out of the box: a deterministic on-device estimation engine and a rule-based apprentice mean you can demo the whole workflow with **no API keys and no backend**. Supabase and the live LLM apprentice are drop-in upgrades, not requirements.
+
+## The AI Apprentice (live LLM)
+
+Set `OPENAI_API_KEY` and the apprentice becomes a **real, streaming LLM** (OpenAI
+Responses API) instead of the on-device flow — the chat UI is identical either way.
+
+**Architecture (provider-swappable, key stays server-side):**
+
+```
+ Browser (ApprenticeDrawer)
+   │  POST /api/apprentice/stream  ── conversation + context (quote, spec,
+   │  ◄── SSE: text / chips / spec / ready / done       ratebook, prefs, prior quotes)
+   ▼
+ Server proxy  (Vite middleware: server/handler.ts)      ← reads OPENAI_API_KEY here only
+   │   runApprentice()  (server/apprentice.ts)
+   │     • system prompt + persona + grounding context
+   │     • AssistantProvider.run() with function-calling tool loop
+   ▼
+ Provider (server/llm/*)  OpenAIResponsesProvider │ MockProvider
+   │   model calls tools ▼
+ Engine-backed tools:  price_job · update_job · offer_quick_replies
+       └─ price_job runs the REAL estimator + hidden-cost engine
+```
+
+Why it's built this way:
+
+- **Never invents pricing.** The model produces *zero* dollar figures itself — every
+  number comes from the `price_job` tool, which runs the same deterministic
+  `estimate()` + hidden-cost engine the rest of the app uses. If required inputs
+  (area, location, ground) are missing, the tool returns `missingFields` and the
+  apprentice asks clarifying questions instead of guessing.
+- **Full context.** Each turn the client sends the current quote, job spec, rate
+  book, user preferences and prior-quote summaries; the engine (pricing + hidden
+  costs) is available as tools.
+- **Streaming.** Server-Sent Events stream tokens straight into the chat bubble.
+- **Per-quote history.** The conversation is stored on each quote and replayed to
+  the model every turn.
+- **Swappable provider.** One interface — `AssistantProvider` (`server/llm/types.ts`).
+  Swapping OpenAI for another vendor is a single new class; nothing else changes.
+- **Secure keys.** `OPENAI_API_KEY` is read only by the Node/Vite middleware and is
+  **never** prefixed with `VITE_`, so it is never bundled into the browser.
+
+Provider selection (`AI_PROVIDER`): `openai` (default when a key is present) ·
+`mock` (deterministic, offline — for dev/tests) · `local` (disable the server
+brain; client uses the on-device apprentice). With no key set it auto-falls back
+to `local`, so the app always works.
+
+> For a hosted deployment, move the same `server/` handler into a Supabase Edge
+> Function or your own API route — the client and provider code are unchanged.
 
 ## Getting started
 
@@ -90,21 +139,25 @@ Sign in with any email (demo mode) and start quoting.
 Copy `.env.example` to `.env`:
 
 ```bash
-# Supabase — cloud auth + cross-device quote sync
+# AI Apprentice (server-side — NEVER prefixed VITE_, so never sent to the browser)
+AI_PROVIDER=openai          # "openai" | "mock" | "local"
+OPENAI_API_KEY=             # your key — read only by the server proxy
+AI_MODEL=gpt-4o             # optional override
+
+# Supabase — cloud auth + cross-device quote sync (client anon key)
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-
-# AI provider for the Apprentice: "claude" | "openai" | "" (local)
-VITE_AI_PROVIDER=
-VITE_AI_API_KEY=
-VITE_AI_MODEL=          # optional override
 ```
 
 - **No vars set** → demo mode: `localStorage` persistence + on-device apprentice.
+- **`OPENAI_API_KEY` set** → the live streaming apprentice (OpenAI Responses API) takes
+  over via the server proxy. The key stays on the server.
+- **`AI_PROVIDER=mock`** → deterministic streaming apprentice for offline dev/tests.
 - **Supabase vars set** → auth + cloud sync (see the suggested SQL schema in `src/lib/supabase.ts`).
-- **AI vars set** → the live LLM takes over the apprentice via `chatComplete()` in `src/lib/ai.ts`.
 
-> ⚠️ For production, proxy LLM calls through a Supabase Edge Function / your own backend so the API key never ships to the browser. `src/lib/ai.ts` is written so only its internals change, not its callers.
+> ⚠️ The key is read only by the Node/Vite server middleware (`server/`) and is never
+> bundled into the client. For a hosted deployment, move the same handler into a
+> Supabase Edge Function or your own API route.
 
 ## Project structure
 
@@ -117,15 +170,25 @@ src/
     hiddenCosts.ts   #   Hidden Cost Intelligence rules engine
     apprentice.ts    #   NL parsing, gap detection & question flow
     learning.ts      #   Apprentice Learning model (learns from quotes)
+    apprenticeProtocol.ts # (in lib) client⇄server event/context types
   lib/
     supabase.ts      #   Supabase client (env-gated) + schema docs
-    ai.ts            #   Claude/OpenAI abstraction + local fallback
+    apprenticeClient.ts #  browser SSE client for the live apprentice
     pdf.ts           #   Quote & tax-invoice PDF generation
     format.ts        #   currency / time helpers
   store/
     useStore.ts      #   Zustand store (persisted)
-  components/        #   AppShell, icons, reusable UI
+  components/        #   AppShell, ApprenticeDrawer, icons, reusable UI
   screens/           #   The 10 screens
+
+server/              # Server-side AI proxy (Node — key never reaches client)
+  vitePlugin.ts      #   mounts /api/apprentice in dev & preview
+  handler.ts         #   SSE handler + health; provider factory
+  apprentice.ts      #   system prompt, engine-backed tools, tool loop
+  llm/
+    types.ts         #   AssistantProvider interface (swappable)
+    openai.ts        #   OpenAI Responses API — streaming + function calls
+    mock.ts          #   deterministic offline provider
 ```
 
 ## How the estimate is built

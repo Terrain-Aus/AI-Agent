@@ -41,6 +41,7 @@ interface AppState {
   updateQuote: (id: string, patch: Partial<Quote>) => void
   updateSpec: (id: string, spec: Partial<JobSpec>) => void
   addMessage: (id: string, msg: ChatMessage) => void
+  updateMessage: (id: string, msgId: string, patch: Partial<ChatMessage>) => void
   runEstimate: (id: string) => void
   deleteQuote: (id: string) => void
 }
@@ -105,6 +106,13 @@ export const useStore = create<AppState>()(
         set({
           quotes: get().quotes.map((q) =>
             q.id === id ? { ...q, chat: [...q.chat, msg], updatedAt: Date.now() } : q,
+          ),
+        }),
+
+      updateMessage: (id, msgId, patch) =>
+        set({
+          quotes: get().quotes.map((q) =>
+            q.id === id ? { ...q, chat: q.chat.map((m) => (m.id === msgId ? { ...m, ...patch } : m)) } : q,
           ),
         }),
 
