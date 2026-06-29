@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ChatMessage, JobSpec, Quote } from '../engine/types'
+import type { ChatMessage, JobActuals, JobSpec, Quote } from '../engine/types'
 import { estimate } from '../engine/estimator'
 import { DEFAULT_RATEBOOK, RateBook } from '../engine/pricing'
 import { EMPTY_SPEC } from '../engine/apprentice'
@@ -43,6 +43,7 @@ interface AppState {
   addMessage: (id: string, msg: ChatMessage) => void
   updateMessage: (id: string, msgId: string, patch: Partial<ChatMessage>) => void
   runEstimate: (id: string) => void
+  logActuals: (id: string, actuals: JobActuals) => void
   deleteQuote: (id: string) => void
 }
 
@@ -130,6 +131,13 @@ export const useStore = create<AppState>()(
           ),
         })
       },
+
+      logActuals: (id, actuals) =>
+        set({
+          quotes: get().quotes.map((q) =>
+            q.id === id ? { ...q, actuals, status: q.status === 'lost' ? q.status : 'invoiced', updatedAt: Date.now() } : q,
+          ),
+        }),
 
       deleteQuote: (id) => set({ quotes: get().quotes.filter((q) => q.id !== id) }),
     }),

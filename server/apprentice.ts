@@ -4,7 +4,7 @@
 // apprentice can never invent pricing.
 
 import type { AssistantProvider, ToolDef } from './llm/types'
-import type { ApprenticeRequest, ClientEvent } from '../src/lib/apprenticeProtocol'
+import type { ApprenticeRequest, ClientEvent, PriorQuoteSummary } from '../src/lib/apprenticeProtocol'
 import type { JobSpec } from '../src/engine/types'
 import { estimate } from '../src/engine/estimator'
 import { riskSummary } from '../src/engine/hiddenCosts'
@@ -22,6 +22,8 @@ HARD RULES:
 - As soon as the user gives you a fact (area, location, soil, access, prep, boxing, finish, thickness), call update_job to record it.
 - When you ask a question, also call offer_quick_replies with 2-4 short tappable options.
 - Call price_job once you believe you have enough. If it returns no missingFields, give the contractor the headline number and tell them to review the flagged costs.
+
+APPRENTICE MEMORY: when previous jobs include real outcomes (actuals), USE them. If similar past jobs ran over their build-cost estimate or a particular flagged cost actually hit repeatedly, warn the contractor up front and lean on it in your risk call. Real results beat guesses.
 
 WORKFLOW: learn facts (update_job) → ask what's missing (with offer_quick_replies) → price_job → summarise bluntly. Use Australian rates and GST. The engine handles the maths; you handle the conversation and the risk call.`
 
@@ -156,7 +158,24 @@ function contextBlock(req: ApprenticeRequest): string {
     prior.length
       ? `Your previous quotes (for similar-job context): ${prior.map((p) => `${p.area}m² ${p.jobType}/${p.finish} in ${p.location} @ $${p.perM2}/m² (${p.status})`).join('; ')}.`
       : 'No previous quotes yet.',
-  ].join('\n')
+    memoryBlock(prior),
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+/** Real-outcome learnings (Apprentice Memory) distilled for the model. */
+function memoryBlock(prior: PriorQuoteSummary[]): string {
+  const done = prior.filter((p) => p.actuals)
+  if (done.length === 0) return ''
+  const lines = done.map((p) => {
+    const a = p.actuals!
+    const bits = [`${p.area}m² ${p.jobType} in ${p.location}: cost ran ${a.costOverPct >= 0 ? '+' : ''}${a.costOverPct}% vs estimate`, a.madeMoney ? 'made money' : 'LOST money']
+    if (a.hitHiddenCosts.length) bits.push(`actually hit: ${a.hitHiddenCosts.join(', ')}`)
+    if (a.surpriseNote) bits.push(`surprise: ${a.surpriseNote}`)
+    return '  • ' + bits.join('; ')
+  })
+  return `APPRENTICE MEMORY — real outcomes from completed jobs (weight these heavily):\n${lines.join('\n')}`
 }
 
 function describeSpec(spec: JobSpec) {

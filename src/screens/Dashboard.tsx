@@ -5,6 +5,7 @@ import { Empty } from '../components/ui'
 import { IconArrow, IconBrain, IconDoc, IconPlus, IconWarning } from '../components/icons'
 import { aud, relativeTime } from '../lib/format'
 import { learnFrom } from '../engine/learning'
+import { buildMemory } from '../engine/memory'
 import { riskSummary } from '../engine/hiddenCosts'
 import { JOB_TYPE_LABELS } from '../engine/pricing'
 import type { Quote } from '../engine/types'
@@ -24,7 +25,9 @@ export default function Dashboard() {
   const user = useStore((s) => s.user)
   const quotes = useStore((s) => s.quotes)
   const model = useMemo(() => learnFrom(quotes), [quotes])
+  const memory = useMemo(() => buildMemory(quotes), [quotes])
   const [learnOpen, setLearnOpen] = useState(true)
+  const [memOpen, setMemOpen] = useState(true)
 
   const priced = quotes.filter((q) => q.estimate)
   const pipeline = priced.filter((q) => ['estimated', 'sent'].includes(q.status))
@@ -91,6 +94,70 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Apprentice Memory — learns from completed-job debriefs */}
+      <div className="card overflow-hidden border-sage-500/25 bg-gradient-to-br from-sage-500/[0.05] to-transparent">
+        <button onClick={() => setMemOpen((v) => !v)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sage-500/20 text-sage-400">
+            <IconBrain size={16} />
+          </span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-sm font-bold text-slate-100">Apprentice memory</span>
+            <span className="block text-[11px] text-slate-500">
+              {memory.debriefed > 0 ? `${memory.debriefed} job${memory.debriefed === 1 ? '' : 's'} debriefed · real results` : 'Close out a job to start the learning loop'}
+            </span>
+          </span>
+          <span className={`text-slate-500 transition ${memOpen ? 'rotate-90' : ''}`}>›</span>
+        </button>
+        {memOpen && (
+          <div className="border-t border-ink-400 px-3.5 py-3 animate-fade-up">
+            {memory.debriefed > 0 && (
+              <div className="mb-3 grid grid-cols-4 gap-1.5">
+                <div className="kpi">
+                  <div className="kpi-label">Banked</div>
+                  <div className={`kpi-value text-sm ${memory.profitBanked >= 0 ? 'text-sage-400' : 'text-danger'}`}>{aud(memory.profitBanked)}</div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-label">Margin</div>
+                  <div className="kpi-value text-sm text-slate-100">{memory.avgRealisedMargin}%</div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-label">Estimate</div>
+                  <div className="kpi-value text-sm text-slate-100">{memory.avgCostRatio ? `${memory.avgCostRatio >= 1 ? '+' : ''}${Math.round((memory.avgCostRatio - 1) * 100)}%` : '—'}</div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-label">Flags hit</div>
+                  <div className="kpi-value text-sm text-amber">{memory.hiddenCostHitRate}%</div>
+                </div>
+              </div>
+            )}
+            <ul className="space-y-1.5">
+              {memory.takeaways.map((t, i) => (
+                <li key={i} className="flex gap-2 text-[13px] leading-snug text-slate-300">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sage-500" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            {memory.calibration.filter((c) => c.flagged >= 2).length > 0 && (
+              <div className="mt-3">
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Hidden-cost calibration</div>
+                <div className="space-y-1">
+                  {memory.calibration.filter((c) => c.flagged >= 2).slice(0, 4).map((c) => (
+                    <div key={c.id} className="flex items-center gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate text-slate-300">{c.title}</span>
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-400">
+                        <div className={`h-full rounded-full ${c.hitRate >= 0.6 ? 'bg-amber' : 'bg-ink-300'}`} style={{ width: `${Math.round(c.hitRate * 100)}%` }} />
+                      </div>
+                      <span className="stat-num w-12 shrink-0 text-right text-slate-500">{c.hit}/{c.flagged}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

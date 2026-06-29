@@ -22,6 +22,7 @@ import {
   IconWarning,
 } from '../components/icons'
 import ApprenticeDrawer from '../components/ApprenticeDrawer'
+import JobDebriefSheet from '../components/JobDebriefSheet'
 import type { Access, CostCategory, Finish, HiddenCost, JobType, SoilType, Trade } from '../engine/types'
 
 type Tab = 'summary' | 'breakdown' | 'risks' | 'details'
@@ -163,6 +164,7 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
   const quote = useStore((s) => s.getQuote(id))!
   const profile = useStore((s) => s.profile)
   const [showSummary, setShowSummary] = useState(false)
+  const [debrief, setDebrief] = useState(false)
   const est = quote.estimate!
   const exposure = est.hiddenCosts.filter((h) => !h.included).reduce((s, h) => s + h.estImpact, 0)
 
@@ -229,6 +231,59 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
           )}
         </div>
       </div>
+
+      {/* Apprentice Memory — debrief once the job is done */}
+      {(quote.status === 'won' || quote.status === 'invoiced') &&
+        (quote.actuals ? (
+          <DebriefCard id={id} onEdit={() => setDebrief(true)} />
+        ) : (
+          <button onClick={() => setDebrief(true)} className="flex w-full items-center justify-between gap-2 rounded-xl border border-sage-500/30 bg-sage-500/[0.06] p-3.5 text-left transition hover:bg-sage-500/[0.1]">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sage-500/20 text-sage-400">
+                <IconBrain size={18} />
+              </div>
+              <div className="text-xs">
+                <div className="font-semibold text-slate-100">Job done? Log the actuals</div>
+                <div className="text-slate-400">Final cost, profit &amp; what actually bit — teaches the apprentice.</div>
+              </div>
+            </div>
+            <span className="text-sage-400">→</span>
+          </button>
+        ))}
+
+      <JobDebriefSheet id={id} open={debrief} onClose={() => setDebrief(false)} />
+    </div>
+  )
+}
+
+function DebriefCard({ id, onEdit }: { id: string; onEdit: () => void }) {
+  const quote = useStore((s) => s.getQuote(id))!
+  const est = quote.estimate!
+  const a = quote.actuals!
+  const profit = a.finalRevenue - a.finalCost - a.surpriseCost
+  const margin = a.finalRevenue > 0 ? Math.round((profit / a.finalRevenue) * 100) : 0
+  const over = est.baseCost > 0 ? Math.round((a.finalCost / est.baseCost - 1) * 100) : 0
+  const hit = a.hitHiddenCostIds.length
+  return (
+    <div className="card p-3.5">
+      <div className="mb-2.5 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-sage-500/90">
+          <IconBrain size={14} /> Debrief logged
+        </span>
+        <button onClick={onEdit} className="text-[11px] text-slate-400 hover:text-sage-400">
+          edit
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <MiniStat label="Real profit" value={aud(profit)} tone={profit >= 0 ? 'sage' : undefined} />
+        <MiniStat label="Margin" value={`${margin}%`} />
+        <MiniStat label="vs estimate" value={`${over >= 0 ? '+' : ''}${over}%`} />
+      </div>
+      <p className="mt-2.5 text-xs leading-relaxed text-slate-400">
+        {profit >= 0 ? `Made ${aud(profit)} on this one.` : `Lost ${aud(-profit)} here.`}{' '}
+        {hit > 0 ? `${hit} of the flagged costs actually hit.` : 'None of the flagged costs landed.'}
+        {a.surpriseCost > 0 && ` Surprise: ${aud(a.surpriseCost)}${a.surpriseNote ? ` (${a.surpriseNote})` : ''}.`}
+      </p>
     </div>
   )
 }

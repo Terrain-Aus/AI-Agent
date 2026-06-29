@@ -21,6 +21,16 @@ export interface PriorQuoteSummary {
   perM2: number
   status: string
   hiddenCostTitles: string[]
+  /** Apprentice Memory: what actually happened, if the job was debriefed. */
+  actuals?: {
+    /** actual build cost ÷ quoted build cost. */
+    costOverPct: number
+    madeMoney: boolean
+    realisedMarginPct: number
+    /** Titles of flagged costs that actually occurred. */
+    hitHiddenCosts: string[]
+    surpriseNote?: string
+  }
 }
 
 /** User/business preferences the apprentice should respect. */

@@ -42,7 +42,7 @@ export interface LearningModel {
   takeaways: string[]
 }
 
-const DONE_STATUSES = ['won', 'lost', 'sent', 'estimated']
+const DONE_STATUSES = ['won', 'lost', 'sent', 'estimated', 'invoiced']
 
 export function learnFrom(quotes: Quote[]): LearningModel {
   const estimated = quotes.filter((q) => q.estimate && DONE_STATUSES.includes(q.status))
@@ -77,10 +77,10 @@ export function learnFrom(quotes: Quote[]): LearningModel {
     })
     .sort((a, b) => b.samples - a.samples)
 
-  // ---- Winning insights ----
-  const won = quotes.filter((q) => q.status === 'won')
+  // ---- Winning insights ---- (an invoiced job was won)
+  const won = quotes.filter((q) => q.status === 'won' || q.status === 'invoiced')
   const lost = quotes.filter((q) => q.status === 'lost')
-  const quoted = quotes.filter((q) => ['sent', 'won', 'lost'].includes(q.status)).length
+  const quoted = quotes.filter((q) => ['sent', 'won', 'lost', 'invoiced'].includes(q.status)).length
   const win: WinInsight = {
     quoted,
     won: won.length,

@@ -124,16 +124,30 @@ export default function ApprenticeDrawer({
     priorQuotes: quotes
       .filter((q) => q.id !== id && q.estimate)
       .slice(0, 8)
-      .map((q: Quote) => ({
-        jobType: q.spec.jobType,
-        finish: q.spec.finish,
-        area: q.spec.area,
-        location: q.spec.location,
-        expected: q.estimate!.expected,
-        perM2: q.spec.area ? Math.round(q.estimate!.expected / q.spec.area) : 0,
-        status: q.status,
-        hiddenCostTitles: q.estimate!.hiddenCosts.map((h) => h.title),
-      })),
+      .map((q: Quote) => {
+        const est = q.estimate!
+        const a = q.actuals
+        return {
+          jobType: q.spec.jobType,
+          finish: q.spec.finish,
+          area: q.spec.area,
+          location: q.spec.location,
+          expected: est.expected,
+          perM2: q.spec.area ? Math.round(est.expected / q.spec.area) : 0,
+          status: q.status,
+          hiddenCostTitles: est.hiddenCosts.map((h) => h.title),
+          actuals:
+            a && est.baseCost > 0
+              ? {
+                  costOverPct: Math.round((a.finalCost / est.baseCost - 1) * 100),
+                  madeMoney: a.madeMoney,
+                  realisedMarginPct: a.finalRevenue > 0 ? Math.round(((a.finalRevenue - a.finalCost - a.surpriseCost) / a.finalRevenue) * 100) : 0,
+                  hitHiddenCosts: est.hiddenCosts.filter((h) => a.hitHiddenCostIds.includes(h.id)).map((h) => h.title),
+                  surpriseNote: a.surpriseNote || undefined,
+                }
+              : undefined,
+        }
+      }),
   })
 
   const payloadMessages = (): PayloadMessage[] => {

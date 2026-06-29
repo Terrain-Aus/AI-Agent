@@ -22,7 +22,10 @@ The **AI Apprentice** — a switched-on 4th-year apprentice who's blunt, practic
 - A plain-English **quote summary** in the apprentice's voice
 - One-tap **PDF export** (quote *and* tax invoice)
 
-It also **learns**: every finished quote sharpens the apprentice's read on your real $/m² rates, your win rate, and the traps that come up most on your jobs.
+It also **learns** — two loops:
+
+- **Apprentice Learning** (from quotes): your real $/m² rates, win rate, and the traps that come up most.
+- **Apprentice Memory** (from *completed-job debriefs*): once a job is won and done, log the actuals — final cost, what you got paid, which flagged hidden costs actually hit, and any surprises. The apprentice then calibrates: how far your estimates run over, your realised margin, which warnings reliably become real costs, and whether a region runs hot. Those learnings surface on the dashboard **and** are fed into the live LLM's context so future quotes are grounded in what actually happened, not just what you quoted.
 
 ## Screens
 

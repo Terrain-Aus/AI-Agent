@@ -107,6 +107,25 @@ export interface Estimate {
   confidence: number
 }
 
+/**
+ * The post-job debrief — what ACTUALLY happened once the work was done.
+ * This is the raw material for Apprentice Memory.
+ */
+export interface JobActuals {
+  loggedAt: number
+  /** What it actually cost to build (your real outlay). */
+  finalCost: number
+  /** What you actually got paid (inc GST). */
+  finalRevenue: number
+  /** IDs of the flagged hidden costs that actually occurred. */
+  hitHiddenCostIds: string[]
+  /** Unflagged surprise costs you copped. */
+  surpriseCost: number
+  surpriseNote: string
+  /** Convenience flag: did the job make money? */
+  madeMoney: boolean
+}
+
 export interface Quote {
   id: string
   title: string
@@ -117,6 +136,8 @@ export interface Quote {
   spec: JobSpec
   estimate?: Estimate
   chat: ChatMessage[]
+  /** Set once the job is debriefed (Apprentice Memory). */
+  actuals?: JobActuals
 }
 
 export interface ChatMessage {
