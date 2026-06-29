@@ -69,6 +69,25 @@ stays usable on a phone on site.
 
 The app runs **100% offline** out of the box: a deterministic on-device estimation engine and a rule-based apprentice mean you can demo the whole workflow with **no API keys and no backend**. Supabase and the live LLM apprentice are drop-in upgrades, not requirements.
 
+## The Commercial Review — TerrainPro's signature moment
+
+The point of TerrainPro isn't a pretty dashboard — it's the *operating system of a
+construction business*: every screen answers "does this help me make money or avoid
+losing it?". When a quote finishes, the apprentice produces a **Commercial Review**
+(`src/engine/review.ts`) at the top of the Summary tab:
+
+- **Profit-first metrics above the fold**, always: Quote Total · Margin · AI
+  Confidence · Risk · Hidden Cost Count · **Profit at Risk**.
+- **A verdict** — `STOP` / `REVIEW` / `GOOD TO SEND` — driven by uncovered risk,
+  unconfirmed ground, and how much margin is exposed.
+- **A proactive "you've forgotten…" checklist** that stops mistakes before they
+  cost money: excluded hidden costs, unconfirmed ground/access, and commonly-missed
+  line items (pump clean-out, washout area, expansion joints, site access).
+- **The dollars it protects** — "fixing these protects ~$1,550 of profit".
+
+It's decision-first: the contractor sees the verdict and what to fix, not just a
+number. That's the feature meant to make them trust the software.
+
 ## The AI Apprentice (live LLM)
 
 Set `OPENAI_API_KEY` and the apprentice becomes a **real, streaming LLM** (OpenAI

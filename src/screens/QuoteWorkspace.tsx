@@ -8,12 +8,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { estimate } from '../engine/estimator'
 import { riskSummary } from '../engine/hiddenCosts'
+import { commercialReview, VERDICT_LABEL, type Verdict } from '../engine/review'
 import { JOB_TYPE_LABELS, FINISH_LABELS, SOIL_LABELS, LOCATIONS } from '../engine/pricing'
 import { TRADE_LABELS } from '../engine/apprentice'
 import { aud, pct } from '../lib/format'
 import { downloadDocument } from '../lib/pdf'
 import { EstimateBand } from '../components/ui'
 import {
+  IconArrow,
   IconBack,
   IconBrain,
   IconCheck,
@@ -52,6 +54,8 @@ export default function QuoteWorkspace({ initialTab = 'summary', openChat = fals
 
   const est = quote.estimate
   const risk = est ? riskSummary(est.hiddenCosts) : null
+  // $ that drops out of profit if the excluded risks land — the headline number.
+  const profitAtRisk = est ? est.hiddenCosts.filter((h) => !h.included).reduce((s, h) => s + h.estImpact, 0) : 0
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'summary', label: 'Summary' },
@@ -77,12 +81,14 @@ export default function QuoteWorkspace({ initialTab = 'summary', openChat = fals
           <span className={`pill border ${statusTone(quote.status)}`}>{quote.status}</span>
         </div>
 
-        {/* KPI strip */}
-        <div className="grid grid-cols-4 gap-1.5">
-          <Kpi label="Total" value={est ? aud(est.expected) : '—'} tone="sage" />
+        {/* Profit-first KPI strip — the six numbers that decide the job */}
+        <div className="grid grid-cols-3 gap-1.5">
+          <Kpi label="Quote Total" value={est ? aud(est.expected) : '—'} tone="sage" />
           <Kpi label="Margin" value={est ? `${est.marginPct}%` : '—'} />
+          <Kpi label="Confidence" value={est ? `${est.confidence}%` : '—'} tone={est && est.confidence < 60 ? 'amber' : undefined} />
           <Kpi label="Risk" value={risk ? risk.level : '—'} tone={risk?.tone} />
-          <Kpi label="Flags" value={est ? String(est.hiddenCosts.length) : '—'} tone={est && est.hiddenCosts.length ? 'amber' : undefined} />
+          <Kpi label="Hidden Costs" value={est ? String(est.hiddenCosts.length) : '—'} tone={est && est.hiddenCosts.length ? 'amber' : undefined} />
+          <Kpi label="Profit at Risk" value={est ? aud(profitAtRisk) : '—'} tone={profitAtRisk > 0 ? 'danger' : 'sage'} />
         </div>
       </div>
 
@@ -166,14 +172,18 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
   const [showSummary, setShowSummary] = useState(false)
   const [debrief, setDebrief] = useState(false)
   const est = quote.estimate!
-  const exposure = est.hiddenCosts.filter((h) => !h.included).reduce((s, h) => s + h.estImpact, 0)
+  const review = commercialReview(quote.spec, est)
 
   return (
     <div className="space-y-3 animate-fade-up">
+      {/* Signature moment — the apprentice's commercial review */}
+      <CommercialReviewCard id={id} onRisks={onRisks} />
+
+      {/* Estimate range — secondary to the verdict */}
       <div className="card p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estimate</span>
-          <span className="pill border border-sage-500/30 bg-sage-500/10 text-sage-400">{pct(est.confidence)} confidence</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estimate range</span>
+          <span className="pill border border-sage-500/30 bg-sage-500/10 text-sage-400">{pct(review.metrics.confidence)} confidence</span>
         </div>
         <EstimateBand low={est.low} expected={est.expected} high={est.high} />
       </div>
@@ -184,20 +194,6 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
         <MiniStat label="Per m²" value={quote.spec.area ? aud(est.expected / quote.spec.area) : '—'} />
         <MiniStat label="Cost" value={aud(est.baseCost)} />
       </div>
-
-      {/* Hidden cost alert (progressive disclosure → Risks tab) */}
-      {est.hiddenCosts.length > 0 && (
-        <button onClick={onRisks} className="flex w-full items-center justify-between gap-2 rounded-xl border border-amber/30 bg-amber/[0.07] p-3 text-left">
-          <div className="flex items-center gap-2.5">
-            <IconWarning size={18} className="shrink-0 text-amber" />
-            <div className="text-xs">
-              <div className="font-semibold text-slate-100">{est.hiddenCosts.length} hidden costs flagged</div>
-              <div className="text-slate-400">{exposure > 0 ? `${aud(exposure)} outside your price` : 'all allowed for'}</div>
-            </div>
-          </div>
-          <span className="text-amber">→</span>
-        </button>
-      )}
 
       {/* Apprentice summary — collapsed by default to save space */}
       <div className="card-flat overflow-hidden">
@@ -284,6 +280,104 @@ function DebriefCard({ id, onEdit }: { id: string; onEdit: () => void }) {
         {hit > 0 ? `${hit} of the flagged costs actually hit.` : 'None of the flagged costs landed.'}
         {a.surpriseCost > 0 && ` Surprise: ${aud(a.surpriseCost)}${a.surpriseNote ? ` (${a.surpriseNote})` : ''}.`}
       </p>
+    </div>
+  )
+}
+
+/* ----- Signature: the apprentice's commercial review ----- */
+const VERDICT_STYLE: Record<Verdict, { border: string; badge: string; bar: string; icon: string }> = {
+  stop: { border: 'border-danger/50', badge: 'bg-danger/15 text-danger border-danger/40', bar: 'bg-danger', icon: 'text-danger' },
+  review: { border: 'border-amber/45', badge: 'bg-amber/15 text-amber border-amber/40', bar: 'bg-amber', icon: 'text-amber' },
+  send: { border: 'border-sage-500/40', badge: 'bg-sage-500/15 text-sage-400 border-sage-500/40', bar: 'bg-sage-500', icon: 'text-sage-400' },
+}
+
+function CommercialReviewCard({ id, onRisks }: { id: string; onRisks: () => void }) {
+  const quote = useStore((s) => s.getQuote(id))!
+  const r = commercialReview(quote.spec, quote.estimate!)
+  const s = VERDICT_STYLE[r.verdict]
+  const [openItem, setOpenItem] = useState<number | null>(null)
+
+  return (
+    <div className={`overflow-hidden rounded-2xl border ${s.border} bg-ink-600 shadow-card`}>
+      <div className={`h-1 w-full ${s.bar}`} />
+      <div className="p-4">
+        {/* Header: QUOTE COMPLETE + verdict */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+            <IconBrain size={13} className={s.icon} /> Quote complete
+          </div>
+          <span className={`pill border ${s.badge}`}>
+            {r.verdict === 'stop' ? <IconWarning size={11} /> : r.verdict === 'send' ? <IconCheck size={11} /> : null}
+            {VERDICT_LABEL[r.verdict]}
+          </span>
+        </div>
+
+        {/* Commercial metric grid — the decision numbers */}
+        <div className="mb-3 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-ink-400 bg-ink-400">
+          <ReviewMetric label="Total" value={aud(r.metrics.total)} tone="sage" />
+          <ReviewMetric label="Margin" value={`${r.metrics.marginPct}%`} />
+          <ReviewMetric label="Confidence" value={`${r.metrics.confidence}%`} tone={r.metrics.confidence < 60 ? 'amber' : undefined} />
+          <ReviewMetric label="Risk" value={r.metrics.riskLevel} tone={r.metrics.riskTone} />
+          <ReviewMetric label="Hidden costs" value={String(r.metrics.hiddenCount)} tone={r.metrics.hiddenCount ? 'amber' : undefined} />
+          <ReviewMetric label="Missed profit" value={r.metrics.potentialLoss > 0 ? aud(r.metrics.potentialLoss) : '$0'} tone={r.metrics.potentialLoss > 0 ? 'danger' : 'sage'} />
+        </div>
+
+        {/* Apprentice review verdict line */}
+        <div className="mb-3 rounded-xl border border-ink-400 bg-ink-700 p-3">
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-sage-500/90">
+            <IconBrain size={12} /> Apprentice review
+          </div>
+          <p className="text-sm font-medium leading-relaxed text-slate-100">{r.headline}</p>
+        </div>
+
+        {/* Forgotten checklist — the proactive stop */}
+        {r.forgotten.length > 0 ? (
+          <>
+            <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+              {r.verdict === 'stop' ? "You've forgotten" : 'Confirm before sending'}
+            </div>
+            <div className="space-y-1">
+              {r.forgotten.map((f, i) => (
+                <div key={i} className="overflow-hidden rounded-lg border border-ink-400 bg-ink-700">
+                  <button onClick={() => setOpenItem(openItem === i ? null : i)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${f.kind === 'unconfirmed' ? 'bg-amber' : f.impact > 0 ? 'bg-danger' : 'bg-slate-500'}`} />
+                    <span className="flex-1 truncate text-sm text-slate-200">{f.label}</span>
+                    {f.impact > 0 && <span className="stat-num shrink-0 text-xs font-semibold text-danger">{aud(f.impact)}</span>}
+                    <span className={`shrink-0 text-slate-600 transition ${openItem === i ? 'rotate-90' : ''}`}>›</span>
+                  </button>
+                  {openItem === i && <p className="border-t border-ink-400 px-3 py-2 text-xs leading-relaxed text-slate-400 animate-fade-up">{f.note}</p>}
+                </div>
+              ))}
+            </div>
+
+            {r.protectedProfit > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-sage-500/30 bg-sage-500/[0.07] px-3.5 py-2.5">
+                <span className="text-xs text-slate-300">Fixing these protects</span>
+                <span className="stat-num text-base font-bold text-sage-400">~{aud(r.protectedProfit)}</span>
+              </div>
+            )}
+
+            <button onClick={onRisks} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-ink-400 bg-ink-500 py-2 text-xs font-semibold text-slate-300 hover:border-ink-300">
+              Review all risks <IconArrow size={14} />
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center gap-2 rounded-xl border border-sage-500/30 bg-sage-500/[0.06] px-3.5 py-2.5 text-sm text-slate-200">
+            <IconCheck size={16} className="text-sage-400" /> Nothing missing on what you've told me. Good to send.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ReviewMetric({ label, value, tone }: { label: string; value: string; tone?: 'sage' | 'amber' | 'danger' | 'info' }) {
+  const color =
+    tone === 'sage' ? 'text-sage-400' : tone === 'amber' ? 'text-amber' : tone === 'danger' ? 'text-danger' : tone === 'info' ? 'text-info' : 'text-slate-100'
+  return (
+    <div className="bg-ink-600 px-2.5 py-2">
+      <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`stat-num text-sm font-bold leading-tight ${color}`}>{value}</div>
     </div>
   )
 }
