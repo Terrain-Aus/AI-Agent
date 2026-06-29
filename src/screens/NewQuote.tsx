@@ -15,10 +15,16 @@ const EXAMPLES = [
 export default function NewQuote() {
   const navigate = useNavigate()
   const createQuote = useStore((s) => s.createQuote)
+  const createSiteQuote = useStore((s) => s.createSiteQuote)
   const addMessage = useStore((s) => s.addMessage)
   const configured = useStore((s) => s.business.configured)
   const [text, setText] = useState('')
   const [client, setClient] = useState('')
+
+  const startSiteQuote = () => {
+    const sq = createSiteQuote({ client, title: client ? `${client} — site quote` : 'Site quote' })
+    navigate(`/site/${sq.id}`)
+  }
 
   const start = (description: string) => {
     const spec = buildSpec(parseDescription(description))
@@ -81,6 +87,18 @@ export default function NewQuote() {
           Hand it to the apprentice <IconArrow size={18} />
         </button>
       </div>
+
+      {/* Detailed site pipeline — structured walkthrough → validation → review */}
+      <button onClick={startSiteQuote} className="card-flat group flex w-full items-center gap-3 p-3 text-left transition hover:border-sage-500">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink-500 text-sage-400">
+          <IconHard size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-slate-100">Detailed site quote</div>
+          <div className="text-[11px] text-slate-500">Walk the site → hidden costs → risk → validate → review. Quantity-first.</div>
+        </div>
+        <IconArrow size={15} className="shrink-0 text-slate-600 group-hover:text-sage-400" />
+      </button>
 
       <div className="flex items-center gap-1.5 px-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
         <IconSpark size={13} /> Tap an example

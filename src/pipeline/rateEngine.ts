@@ -25,13 +25,16 @@ interface Resolved {
 function resolveRate(line: QuantityLine, rates: Rates): Resolved {
   switch (line.category) {
     case 'plant':
-    case 'excavation': {
+    case 'excavation':
+    case 'mobilisation': {
       const id = line.machineId ?? 'ex5t'
       const r = rates.plantRates[id]
       if (r) return { unitRate: r.hourlyCost, kind: 'plant', refId: id }
       break
     }
-    case 'labour': {
+    case 'labour':
+    case 'traffic-control':
+    case 'survey-setout': {
       const id = line.roleId ?? 'labourer'
       const r = rates.labourRates[id]
       if (r) return { unitRate: r.costPerHour, kind: 'labour', refId: id }

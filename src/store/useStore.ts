@@ -8,8 +8,9 @@ import type { ChatMessage, JobActuals, JobSpec, Quote } from '../engine/types'
 import { estimate } from '../engine/estimator'
 import { DEFAULT_RATEBOOK, RateBook } from '../engine/pricing'
 import { DEFAULT_BUSINESS, deriveRateBook, type BusinessProfile } from '../engine/business'
-import type { BusinessIntelligence } from '../pipeline/types'
+import type { BusinessIntelligence, QuoteContext, RiskInputs } from '../pipeline/types'
 import { SEED_BUSINESS_INTELLIGENCE } from '../pipeline/seed'
+import { emptyQuoteContext, defaultRiskInputs } from '../pipeline/defaults'
 import { EMPTY_SPEC } from '../engine/apprentice'
 import { uid } from '../lib/format'
 
@@ -28,6 +29,22 @@ export interface AuthUser {
   name: string
 }
 
+/**
+ * A pipeline quote stores only the INPUTS (QuoteContext + RiskInputs). The
+ * priced results are always derived live via runPipeline(bi) so BusinessIntelligence
+ * stays the single source of truth — no copy of rates is ever frozen into a quote.
+ */
+export interface SiteQuote {
+  id: string
+  title: string
+  client: string
+  status: 'draft' | 'validated' | 'sent'
+  createdAt: number
+  updatedAt: number
+  context: QuoteContext
+  risk: RiskInputs
+}
+
 interface AppState {
   user: AuthUser | null
   profile: CompanyProfile
@@ -36,6 +53,7 @@ interface AppState {
   /** BusinessIntelligence — single source of truth for the quoting pipeline. */
   bi: BusinessIntelligence
   quotes: Quote[]
+  siteQuotes: SiteQuote[]
 
   login: (email: string, name?: string) => void
   logout: () => void
@@ -46,6 +64,14 @@ interface AppState {
   updateBusiness: (b: Partial<BusinessProfile>) => void
   /** Replace BusinessIntelligence. Written ONLY by the BI setup screen. */
   setBusinessIntelligence: (bi: BusinessIntelligence) => void
+
+  // --- Pipeline (site) quotes ---
+  createSiteQuote: (seed?: Partial<SiteQuote>) => SiteQuote
+  getSiteQuote: (id: string) => SiteQuote | undefined
+  updateSiteQuote: (id: string, patch: Partial<SiteQuote>) => void
+  updateSiteContext: (id: string, context: QuoteContext) => void
+  updateSiteRisk: (id: string, risk: RiskInputs) => void
+  deleteSiteQuote: (id: string) => void
 
   createQuote: (seed?: Partial<Quote>) => Quote
   getQuote: (id: string) => Quote | undefined
@@ -76,6 +102,7 @@ export const useStore = create<AppState>()(
       business: DEFAULT_BUSINESS,
       bi: SEED_BUSINESS_INTELLIGENCE,
       quotes: [],
+      siteQuotes: [],
 
       login: (email, name) =>
         set({ user: { email, name: name || email.split('@')[0] }, profile: { ...get().profile, email: get().profile.email || email } }),
@@ -95,6 +122,31 @@ export const useStore = create<AppState>()(
 
       // Single writer for BusinessIntelligence (the pipeline's source of truth).
       setBusinessIntelligence: (bi) => set({ bi }),
+
+      // --- Pipeline (site) quotes — store INPUTS only; results derived live ---
+      createSiteQuote: (seed) => {
+        const now = Date.now()
+        const sq: SiteQuote = {
+          id: uid('sq_'),
+          title: seed?.title || 'Site quote',
+          client: seed?.client || '',
+          status: 'draft',
+          createdAt: now,
+          updatedAt: now,
+          context: seed?.context || emptyQuoteContext(),
+          risk: seed?.risk || defaultRiskInputs(),
+        }
+        set({ siteQuotes: [sq, ...get().siteQuotes] })
+        return sq
+      },
+      getSiteQuote: (id) => get().siteQuotes.find((s) => s.id === id),
+      updateSiteQuote: (id, patch) =>
+        set({ siteQuotes: get().siteQuotes.map((s) => (s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s)) }),
+      updateSiteContext: (id, context) =>
+        set({ siteQuotes: get().siteQuotes.map((s) => (s.id === id ? { ...s, context, updatedAt: Date.now() } : s)) }),
+      updateSiteRisk: (id, risk) =>
+        set({ siteQuotes: get().siteQuotes.map((s) => (s.id === id ? { ...s, risk, updatedAt: Date.now() } : s)) }),
+      deleteSiteQuote: (id) => set({ siteQuotes: get().siteQuotes.filter((s) => s.id !== id) }),
 
       createQuote: (seed) => {
         const now = Date.now()

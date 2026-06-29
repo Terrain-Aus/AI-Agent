@@ -45,5 +45,7 @@ export function addForgottenScopeItems(ctx: QuoteContext, items: ScopeItem[]): Q
 }
 
 export { quantityEngine, rateEngine, commercialEngine, validationEngine, canSend }
+export { suggestForgottenItems, type ForgottenSuggestion } from './hiddenCosts'
+export { emptyQuoteContext, defaultRiskInputs } from './defaults'
 export * from './types'
 export { SEED_BUSINESS_INTELLIGENCE } from './seed'
