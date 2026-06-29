@@ -86,6 +86,43 @@ On save the profile **projects into the engine rate book** (`deriveRateBook`,
 configuring it here updates pricing everywhere **without changing the estimator or
 the Quote Workspace**.
 
+## The quoting pipeline (product-logic contract)
+
+The quoting core is a **one-way pipeline of four pure, framework-agnostic,
+unit-tested engines** (`src/pipeline/`). **BusinessIntelligence** is the single
+source of truth — every engine reads from it; none keeps its own copy.
+
+```
+QuoteContext            (physical inputs only — NO money)
+  ──QuantityEngine(prod)──────────────►  QuantityResult   (physical only)
+  ──RateEngine(BI.rates)──────────────►  RateResult       (cost, pre-margin)
+  ──CommercialEngine(policy, risk)────►  CommercialResult (sell price)
+  ──ValidationEngine(qty, history)────►  ValidationResult (the gate)
+```
+
+The four rules are enforced structurally, not by convention:
+
+- **QuantityResult never shows dollars** — a compile-time `AssertNoMoney` guard
+  makes any monetary key in `QuoteContext`/`QuantityResult` a *type error*
+  (verified: adding one fails `tsc`). Plus a runtime test scans for money keys.
+- **RateEngine is stateless** — rates are passed as an argument; it persists
+  nothing and holds no rate store.
+- **CommercialEngine can't look up rates** — its signature has no rate handle and
+  an architecture test asserts it imports neither the seed nor the store.
+- **ValidationEngine is the gate** — `canSend()` is `false` on `status: 'fail'`;
+  the UI blocks the send action.
+
+Forgotten physical items found on the Hidden Cost + Risk screen **re-enter at
+Stage 1** (`addForgottenScopeItems`) so they flow Quantity → Rate → Commercial
+correctly — the one-way flow is never broken.
+
+BusinessIntelligence ships with a **SE-QLD seed** (`src/pipeline/seed.ts`) so the
+whole pipeline runs end-to-end before the BI setup form lands. Run the proofs:
+
+```bash
+npm test          # 26 tests: the four rules + e2e on seed
+```
+
 ## The Commercial Review — TerrainPro's signature moment
 
 The point of TerrainPro isn't a pretty dashboard — it's the *operating system of a

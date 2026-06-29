@@ -8,6 +8,8 @@ import type { ChatMessage, JobActuals, JobSpec, Quote } from '../engine/types'
 import { estimate } from '../engine/estimator'
 import { DEFAULT_RATEBOOK, RateBook } from '../engine/pricing'
 import { DEFAULT_BUSINESS, deriveRateBook, type BusinessProfile } from '../engine/business'
+import type { BusinessIntelligence } from '../pipeline/types'
+import { SEED_BUSINESS_INTELLIGENCE } from '../pipeline/seed'
 import { EMPTY_SPEC } from '../engine/apprentice'
 import { uid } from '../lib/format'
 
@@ -31,6 +33,8 @@ interface AppState {
   profile: CompanyProfile
   ratebook: RateBook
   business: BusinessProfile
+  /** BusinessIntelligence — single source of truth for the quoting pipeline. */
+  bi: BusinessIntelligence
   quotes: Quote[]
 
   login: (email: string, name?: string) => void
@@ -40,6 +44,8 @@ interface AppState {
   resetRatebook: () => void
   /** Update the business profile; projects rates into the engine ratebook. */
   updateBusiness: (b: Partial<BusinessProfile>) => void
+  /** Replace BusinessIntelligence. Written ONLY by the BI setup screen. */
+  setBusinessIntelligence: (bi: BusinessIntelligence) => void
 
   createQuote: (seed?: Partial<Quote>) => Quote
   getQuote: (id: string) => Quote | undefined
@@ -68,6 +74,7 @@ export const useStore = create<AppState>()(
       profile: DEFAULT_PROFILE,
       ratebook: DEFAULT_RATEBOOK,
       business: DEFAULT_BUSINESS,
+      bi: SEED_BUSINESS_INTELLIGENCE,
       quotes: [],
 
       login: (email, name) =>
@@ -85,6 +92,9 @@ export const useStore = create<AppState>()(
         const ratebook = business.configured ? deriveRateBook(business, get().ratebook) : get().ratebook
         set({ business, ratebook })
       },
+
+      // Single writer for BusinessIntelligence (the pipeline's source of truth).
+      setBusinessIntelligence: (bi) => set({ bi }),
 
       createQuote: (seed) => {
         const now = Date.now()
