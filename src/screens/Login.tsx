@@ -14,7 +14,11 @@ export default function Login() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     login(email || 'demo@terrainpro.au', name)
-    navigate('/')
+    // First-run onboarding: a brand-new contractor (no business set up, no
+    // quotes yet) goes straight into the sequential Business setup wizard.
+    const { business, quotes } = useStore.getState()
+    const firstRun = !business.configured && quotes.length === 0
+    navigate(firstRun ? '/business' : '/')
   }
 
   return (

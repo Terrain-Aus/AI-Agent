@@ -73,12 +73,25 @@ export default function BusinessSetup() {
               {isFirstRun ? 'Your commercial source of truth — drives every quote' : `Configured · ${completeness.pct}% complete`}
             </div>
           </div>
-          {!isFirstRun && (
+          {isFirstRun ? (
+            <button onClick={() => navigate('/')} className="text-[11px] font-semibold text-slate-500 hover:text-slate-300">
+              Skip for now →
+            </button>
+          ) : (
             <span className="pill border border-sage-500/30 bg-sage-500/10 text-sage-400">
               <IconCheck size={11} /> Live
             </span>
           )}
         </div>
+
+        {/* Advanced: low-level engine rate book (kept out of primary nav) */}
+        {!isFirstRun && (
+          <div className="flex justify-end pb-1.5">
+            <button onClick={() => navigate('/pricing')} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-sage-400">
+              Advanced · Rate book <IconArrow size={12} />
+            </button>
+          </div>
+        )}
 
         {/* Step rail */}
         <div className="flex items-center gap-1">

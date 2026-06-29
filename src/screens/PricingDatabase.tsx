@@ -1,6 +1,7 @@
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Card, SectionTitle } from '../components/ui'
-import { IconDatabase } from '../components/icons'
+import { IconBack, IconDatabase } from '../components/icons'
 import { LOCATIONS } from '../engine/pricing'
 import type { RateBook } from '../engine/pricing'
 
@@ -32,6 +33,7 @@ const FIELDS: RateField[] = [
 const GROUPS = ['Materials', 'Labour', 'Machinery', 'Disposal', 'Delivery', 'Margin']
 
 export default function PricingDatabase() {
+  const navigate = useNavigate()
   const ratebook = useStore((s) => s.ratebook)
   const updateRatebook = useStore((s) => s.updateRatebook)
   const resetRatebook = useStore((s) => s.resetRatebook)
@@ -49,14 +51,17 @@ export default function PricingDatabase() {
 
   return (
     <div className="space-y-5">
+      <button onClick={() => navigate('/business')} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-sage-400">
+        <IconBack size={14} /> Business
+      </button>
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 text-sage-400">
             <IconDatabase size={18} />
-            <span className="text-xs font-bold uppercase tracking-wide">Pricing Database</span>
+            <span className="text-xs font-bold uppercase tracking-wide">Advanced · Rate Book</span>
           </div>
-          <h1 className="mt-1 text-2xl font-extrabold text-slate-100">Your rates</h1>
-          <p className="text-sm text-slate-400">These drive every estimate. Tune them to your suppliers and crew.</p>
+          <h1 className="mt-1 text-2xl font-extrabold text-slate-100">Engine rates</h1>
+          <p className="text-sm text-slate-400">Low-level rates the estimator uses. Your Business profile projects into these.</p>
         </div>
         <button onClick={resetRatebook} className="btn-ghost text-xs">
           Reset
