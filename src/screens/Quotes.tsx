@@ -69,10 +69,7 @@ export default function Quotes() {
         <div className="space-y-2.5">
           {list.map((q) => (
             <div key={q.id} className="card-flat flex items-center justify-between gap-3 p-3.5 transition hover:border-sage-500">
-              <button
-                onClick={() => navigate(q.estimate ? `/quote/${q.id}/preview` : `/quote/${q.id}/chat`)}
-                className="min-w-0 flex-1 text-left"
-              >
+              <button onClick={() => navigate(`/quote/${q.id}`)} className="min-w-0 flex-1 text-left">
                 <div className="flex items-center gap-2">
                   <span className={`pill ${STATUS_TONE[q.status]}`}>{q.status}</span>
                   {(q.estimate?.hiddenCosts.length ?? 0) > 0 && (

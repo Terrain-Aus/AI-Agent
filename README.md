@@ -26,19 +26,33 @@ It also **learns**: every finished quote sharpens the apprentice's read on your 
 
 ## Screens
 
-| # | Screen | Route |
+The 10 screens are delivered through a **dense, mobile-first** layout. Per-quote
+views are consolidated into one **Quote Workspace** — a sticky KPI header, tabs
+(Summary / Costs / Risks / Job), a sticky action bar (Save · Ask Apprentice ·
+Preview), and the Apprentice as a **slide-up drawer** — so the whole workflow
+stays usable on a phone on site.
+
+| # | Screen | Where |
 |---|--------|-------|
 | 1 | Login | `/login` |
 | 2 | Dashboard (+ Apprentice Learning) | `/` |
-| 3 | New Quote | `/new` |
-| 4 | AI Apprentice Chat | `/quote/:id/chat` |
-| 5 | Job Details | `/quote/:id/details` |
-| 6 | Hidden Cost Intelligence | `/quote/:id/hidden-costs` |
-| 7 | Quote Preview (+ margin control) | `/quote/:id/preview` |
-| 8 | Export PDF / Tax Invoice | (action from Preview) |
+| 3 | New Quote builder | `/new` |
+| 4 | AI Apprentice Chat | slide-up drawer (`/quote/:id/chat`) |
+| 5 | Job Details | Workspace → **Job** tab (`/quote/:id/details`) |
+| 6 | Hidden Cost Intelligence | Workspace → **Risks** tab (`/quote/:id/hidden-costs`) |
+| 7 | Quote Preview (+ margin control) | Workspace → **Summary**/**Costs** (`/quote/:id`) |
+| 8 | Export PDF / Tax Invoice | sticky action + Summary tab |
 | 9 | Pricing Database | `/pricing` |
 | 10 | Settings | `/settings` |
 | — | Quotes list | `/quotes` |
+
+### Screen-saving / mobile-first UI
+
+- Above-the-fold **KPI strip**: job Total, Margin, Risk level and hidden-cost Flags first.
+- **Tabs** replace long scrolling; **accordions** hide line-item detail until tapped.
+- **Progressive disclosure** — headline numbers first, breakdowns behind expandable cards.
+- **Bottom sheets** for the Apprentice and forms; **sticky bottom bar** for primary actions.
+- Dense fintech data tiles, compact padding, icons + short labels — no giant hero sections.
 
 ## Tech stack
 

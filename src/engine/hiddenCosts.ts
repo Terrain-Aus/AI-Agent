@@ -191,6 +191,24 @@ const rules: Rule[] = [
   },
 ]
 
+export interface RiskSummary {
+  level: 'Low' | 'Medium' | 'High' | 'Critical'
+  tone: 'sage' | 'info' | 'amber' | 'danger'
+  /** Exposure not yet inside the quote price. */
+  exposure: number
+  count: number
+}
+
+/** Roll the hidden-cost flags up into a single headline risk read. */
+export function riskSummary(hiddenCosts: HiddenCost[]): RiskSummary {
+  const exposure = hiddenCosts.filter((h) => !h.included).reduce((s, h) => s + h.estImpact, 0)
+  const count = hiddenCosts.length
+  if (hiddenCosts.some((h) => h.severity === 'critical')) return { level: 'Critical', tone: 'danger', exposure, count }
+  if (hiddenCosts.some((h) => h.severity === 'high')) return { level: 'High', tone: 'amber', exposure, count }
+  if (hiddenCosts.some((h) => h.severity === 'medium')) return { level: 'Medium', tone: 'info', exposure, count }
+  return { level: 'Low', tone: 'sage', exposure, count }
+}
+
 export function detectHiddenCosts(spec: JobSpec, volumeM3: number): HiddenCost[] {
   const ctx: Ctx = {
     spec,

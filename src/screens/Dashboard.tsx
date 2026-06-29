@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { Card, Empty, SectionTitle, StatTile } from '../components/ui'
-import { IconArrow, IconBrain, IconDoc, IconPlus, IconSpark, IconWarning } from '../components/icons'
+import { Empty } from '../components/ui'
+import { IconArrow, IconBrain, IconDoc, IconPlus, IconWarning } from '../components/icons'
 import { aud, relativeTime } from '../lib/format'
 import { learnFrom } from '../engine/learning'
+import { riskSummary } from '../engine/hiddenCosts'
 import { JOB_TYPE_LABELS } from '../engine/pricing'
 import type { Quote } from '../engine/types'
 
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const user = useStore((s) => s.user)
   const quotes = useStore((s) => s.quotes)
   const model = useMemo(() => learnFrom(quotes), [quotes])
+  const [learnOpen, setLearnOpen] = useState(true)
 
   const priced = quotes.filter((q) => q.estimate)
   const pipeline = priced.filter((q) => ['estimated', 'sent'].includes(q.status))
@@ -31,113 +33,125 @@ export default function Dashboard() {
   const totalFlags = priced.reduce((s, q) => s + (q.estimate?.hiddenCosts.length ?? 0), 0)
 
   return (
-    <div className="space-y-6">
-      {/* Greeting */}
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-sm text-slate-400">G'day{user?.name ? `, ${user.name.split(' ')[0]}` : ''} 👷</p>
-          <h1 className="text-2xl font-extrabold text-slate-100">Let's price some work</h1>
+    <div className="space-y-3">
+      {/* Compact greeting row */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="text-sm">
+          <span className="text-slate-500">G'day{user?.name ? `, ${user.name.split(' ')[0]}` : ''} —</span>{' '}
+          <span className="font-semibold text-slate-200">let's price some work</span>
         </div>
-        <button onClick={() => navigate('/new')} className="btn-primary hidden sm:inline-flex">
-          <IconPlus size={18} /> New quote
+        <button onClick={() => navigate('/new')} className="btn-primary !px-3 !py-1.5 text-xs">
+          <IconPlus size={15} /> New
         </button>
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Pipeline" value={aud(pipelineValue)} sub={`${pipeline.length} live`} accent="sage" />
-        <StatTile label="Won" value={aud(wonValue)} sub={`${model.win.won} job${model.win.won === 1 ? '' : 's'}`} />
-        <StatTile label="Win rate" value={model.win.winRate ? `${model.win.winRate}%` : '—'} sub={`${model.win.quoted} quoted`} />
-        <StatTile label="Traps caught" value={String(totalFlags)} accent="amber" sub="hidden costs" />
+      {/* Dense KPI row */}
+      <div className="grid grid-cols-4 gap-1.5">
+        <DKpi label="Pipeline" value={aud(pipelineValue)} sub={`${pipeline.length} live`} tone="sage" />
+        <DKpi label="Won" value={aud(wonValue)} sub={`${model.win.won} job${model.win.won === 1 ? '' : 's'}`} />
+        <DKpi label="Win rate" value={model.win.winRate ? `${model.win.winRate}%` : '—'} sub={`${model.win.quoted} sent`} />
+        <DKpi label="Traps" value={String(totalFlags)} sub="caught" tone={totalFlags ? 'amber' : undefined} />
       </div>
 
-      {/* Apprentice learning panel */}
-      <Card className="border-sage-500/25 bg-gradient-to-br from-sage-500/[0.07] to-transparent">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sage-500/20 text-sage-400">
-              <IconBrain size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-100">Apprentice learning</h2>
-              <p className="text-[11px] text-slate-500">Smarter every job · {model.totalLearned} learned</p>
-            </div>
-          </div>
-          <IconSpark size={18} className="text-sage-500/60" />
-        </div>
-
-        <ul className="space-y-2">
-          {model.takeaways.map((t, i) => (
-            <li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-300">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-sage-500" />
-              {t}
-            </li>
-          ))}
-        </ul>
-
-        {model.jobInsights.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {model.jobInsights.slice(0, 3).map((ins) => (
-              <div key={ins.jobType + ins.finish} className="card-flat p-3">
-                <div className="truncate text-xs font-semibold text-slate-300">
-                  {JOB_TYPE_LABELS[ins.jobType as keyof typeof JOB_TYPE_LABELS] ?? ins.jobType}
-                </div>
-                <div className="mt-0.5 stat-num text-lg font-bold text-sage-400">{aud(ins.avgPerM2)}<span className="text-xs font-normal text-slate-500">/m²</span></div>
-                <div className="text-[10px] text-slate-500">
-                  {ins.samples} job{ins.samples > 1 ? 's' : ''} ·{' '}
-                  <span className={ins.trend === 'up' ? 'text-sage-400' : ins.trend === 'down' ? 'text-danger' : 'text-slate-500'}>
-                    {ins.trend === 'up' ? '↑ rising' : ins.trend === 'down' ? '↓ slipping' : '→ steady'}
-                  </span>
-                </div>
+      {/* Apprentice learning — collapsible */}
+      <div className="card overflow-hidden">
+        <button onClick={() => setLearnOpen((v) => !v)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sage-500/20 text-sage-400">
+            <IconBrain size={16} />
+          </span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-sm font-bold text-slate-100">Apprentice learning</span>
+            <span className="block text-[11px] text-slate-500">Smarter every job · {model.totalLearned} learned</span>
+          </span>
+          <span className={`text-slate-500 transition ${learnOpen ? 'rotate-90' : ''}`}>›</span>
+        </button>
+        {learnOpen && (
+          <div className="border-t border-ink-400 px-3.5 py-3 animate-fade-up">
+            <ul className="space-y-1.5">
+              {model.takeaways.map((t, i) => (
+                <li key={i} className="flex gap-2 text-[13px] leading-snug text-slate-300">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sage-500" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            {model.jobInsights.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-1.5">
+                {model.jobInsights.slice(0, 3).map((ins) => (
+                  <div key={ins.jobType + ins.finish} className="kpi">
+                    <div className="kpi-label truncate">{JOB_TYPE_LABELS[ins.jobType as keyof typeof JOB_TYPE_LABELS] ?? ins.jobType}</div>
+                    <div className="kpi-value text-sm text-sage-400">
+                      {aud(ins.avgPerM2)}<span className="text-[10px] font-normal text-slate-500">/m²</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {ins.samples}× ·{' '}
+                      <span className={ins.trend === 'up' ? 'text-sage-400' : ins.trend === 'down' ? 'text-danger' : 'text-slate-500'}>
+                        {ins.trend === 'up' ? '↑' : ins.trend === 'down' ? '↓' : '→'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* Recent quotes */}
-      <div>
-        <SectionTitle hint={quotes.length ? `${quotes.length} total` : undefined}>Recent quotes</SectionTitle>
-        {quotes.length === 0 ? (
-          <Empty title="No quotes yet" icon={<IconDoc size={32} />}>
-            Describe a job and the apprentice will price it in under a minute — hidden costs and all.
-          </Empty>
-        ) : (
-          <div className="space-y-2.5">
-            {quotes.slice(0, 6).map((q) => (
+      {/* Recent quotes — compact rows */}
+      <div className="flex items-center justify-between px-1 pt-1">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent</span>
+        {quotes.length > 0 && (
+          <button onClick={() => navigate('/quotes')} className="text-[11px] text-sage-400">
+            View all →
+          </button>
+        )}
+      </div>
+      {quotes.length === 0 ? (
+        <Empty title="No quotes yet" icon={<IconDoc size={28} />}>
+          Describe a job and the apprentice prices it in under a minute — hidden costs and all.
+        </Empty>
+      ) : (
+        <div className="space-y-1.5">
+          {quotes.slice(0, 6).map((q) => {
+            const risk = q.estimate ? riskSummary(q.estimate.hiddenCosts) : null
+            return (
               <button
                 key={q.id}
-                onClick={() => navigate(q.estimate ? `/quote/${q.id}/preview` : `/quote/${q.id}/chat`)}
-                className="card-flat flex w-full items-center justify-between gap-3 p-3.5 text-left transition hover:border-sage-500"
+                onClick={() => navigate(`/quote/${q.id}`)}
+                className="card-flat flex w-full items-center gap-2.5 p-2.5 text-left transition hover:border-sage-500"
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
                     <span className={`pill ${STATUS_TONE[q.status]}`}>{q.status}</span>
-                    {(q.estimate?.hiddenCosts.length ?? 0) > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber">
-                        <IconWarning size={11} /> {q.estimate!.hiddenCosts.length}
+                    {risk && risk.count > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber">
+                        <IconWarning size={10} /> {risk.count}
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 truncate text-sm font-semibold text-slate-100">{q.title}</div>
-                  <div className="truncate text-xs text-slate-500">
-                    {q.client || 'No client'} · {relativeTime(q.updatedAt)}
-                  </div>
+                  <div className="mt-0.5 truncate text-[13px] font-semibold text-slate-100">{q.title}</div>
+                  <div className="truncate text-[11px] text-slate-500">{q.client || 'No client'} · {relativeTime(q.updatedAt)}</div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="stat-num font-bold text-sage-400">{q.estimate ? aud(q.estimate.expected) : '—'}</div>
-                  <IconArrow size={16} className="ml-auto mt-1 text-slate-600" />
+                  <div className="stat-num text-sm font-bold text-sage-400">{q.estimate ? aud(q.estimate.expected) : '—'}</div>
+                  <IconArrow size={14} className="ml-auto text-slate-600" />
                 </div>
               </button>
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
-      {/* Mobile new-quote CTA */}
-      <button onClick={() => navigate('/new')} className="btn-primary w-full sm:hidden">
-        <IconPlus size={18} /> New quote
-      </button>
+function DKpi({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'sage' | 'amber' }) {
+  const color = tone === 'sage' ? 'text-sage-400' : tone === 'amber' ? 'text-amber' : 'text-slate-100'
+  return (
+    <div className="kpi">
+      <div className="kpi-label truncate">{label}</div>
+      <div className={`kpi-value text-[15px] ${color}`}>{value}</div>
+      <div className="truncate text-[10px] text-slate-500">{sub}</div>
     </div>
   )
 }

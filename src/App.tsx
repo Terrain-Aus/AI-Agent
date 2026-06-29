@@ -5,10 +5,7 @@ import { useStore } from './store/useStore'
 import Login from './screens/Login'
 import Dashboard from './screens/Dashboard'
 import NewQuote from './screens/NewQuote'
-import ApprenticeChat from './screens/ApprenticeChat'
-import JobDetails from './screens/JobDetails'
-import HiddenCosts from './screens/HiddenCosts'
-import QuotePreview from './screens/QuotePreview'
+import QuoteWorkspace from './screens/QuoteWorkspace'
 import PricingDatabase from './screens/PricingDatabase'
 import Settings from './screens/Settings'
 import Quotes from './screens/Quotes'
@@ -27,10 +24,15 @@ export default function App() {
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/quotes" element={<RequireAuth><Quotes /></RequireAuth>} />
       <Route path="/new" element={<RequireAuth><NewQuote /></RequireAuth>} />
-      <Route path="/quote/:id/chat" element={<RequireAuth><ApprenticeChat /></RequireAuth>} />
-      <Route path="/quote/:id/details" element={<RequireAuth><JobDetails /></RequireAuth>} />
-      <Route path="/quote/:id/hidden-costs" element={<RequireAuth><HiddenCosts /></RequireAuth>} />
-      <Route path="/quote/:id/preview" element={<RequireAuth><QuotePreview /></RequireAuth>} />
+
+      {/* Unified quote workspace — old per-screen routes map to a tab/drawer */}
+      <Route path="/quote/:id" element={<RequireAuth><QuoteWorkspace /></RequireAuth>} />
+      <Route path="/quote/:id/chat" element={<RequireAuth><QuoteWorkspace openChat /></RequireAuth>} />
+      <Route path="/quote/:id/preview" element={<RequireAuth><QuoteWorkspace initialTab="summary" /></RequireAuth>} />
+      <Route path="/quote/:id/breakdown" element={<RequireAuth><QuoteWorkspace initialTab="breakdown" /></RequireAuth>} />
+      <Route path="/quote/:id/hidden-costs" element={<RequireAuth><QuoteWorkspace initialTab="risks" /></RequireAuth>} />
+      <Route path="/quote/:id/details" element={<RequireAuth><QuoteWorkspace initialTab="details" /></RequireAuth>} />
+
       <Route path="/pricing" element={<RequireAuth><PricingDatabase /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
