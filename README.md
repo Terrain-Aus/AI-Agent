@@ -86,6 +86,32 @@ On save the profile **projects into the engine rate book** (`deriveRateBook`,
 configuring it here updates pricing everywhere **without changing the estimator or
 the Quote Workspace**.
 
+## The binding domain contract (`src/domain`)
+
+`src/domain` is the **binding product-logic contract**: BusinessIntelligence as
+the single source of truth, the one-way pipeline, and the four non-negotiable
+rules enforced **in the type system**, not by convention.
+
+- **R1 — Quantity never shows dollars.** `Quantity` is a branded number; a plain
+  `number` (or `Money`) cannot be assigned into a `QuantityResult` field — it's a
+  `tsc` error (`src/domain/typeAcceptance.ts` proves it via `@ts-expect-error`).
+- **R2 — Rate Engine never stores rates.** `resolveRate` is pure over the
+  projected `RateBook`; it never imports BI (architecture test).
+- **R3 — Commercial never looks up rates.** `runCommercial(rates, policy, risk)`
+  has no BI/RateBook handle and imports neither.
+- **R4 — Validation is the gate.** `buildFinalQuote` takes a
+  `ValidatedQuoteContext`; it cannot be called without a `ValidationResult`.
+
+Pipeline: `BI → projectRateBook → Quantity → Rate → Commercial → Validation →
+Final`. The `Pricing` primitive stores a cost/sell split and derives the sell
+(`resolveSellPrice`/`resolveMargin`); a cost change recalculates every non-pinned
+sell. `src/domain/seedQLD.ts` is a schema-valid QLD seed. `npm test` runs the
+acceptance suite (45 tests incl. the structural rule guards).
+
+> The earlier `src/pipeline` + `SiteQuote` flow is the working UI built on a
+> simpler interpretation; `src/domain` is the precise contract the screens will
+> migrate onto (BI setup form + editors are the next pass).
+
 ## The quoting pipeline (product-logic contract)
 
 The quoting core is a **one-way pipeline of four pure, framework-agnostic,
