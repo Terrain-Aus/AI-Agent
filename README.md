@@ -86,6 +86,46 @@ On save the profile **projects into the engine rate book** (`deriveRateBook`,
 configuring it here updates pricing everywhere **without changing the estimator or
 the Quote Workspace**.
 
+## The Estimating Engine (`src/estimator`) — current authoritative engine
+
+A UI-free TypeScript estimating engine: a one-way **10-stage pipeline** of pure
+`(quote) => quote` functions where the **estimation logic is identical for every
+contractor** and the **pricing is unique per contractor**, pulled from their own
+BusinessIntelligence through a repository interface. Two contractors quote the
+same job and get different, correct prices using the same engine code.
+
+```
+Raw Input → Trade → Quantity → (BI) → Rate → Hidden Cost → Risk →
+Commercial → Validation → Final Quote
+```
+
+**The 7 LAWS** (each has a test in `src/estimator/__tests__/laws.test.ts`):
+1. Quantity never produces dollars (hours/m³/tonnes/loads only).
+2. BANK vs LOOSE — dig time off bank volume, cartage/loads off loose (bank×swell).
+3. Only the Rate engine creates base money; it's also a callable service.
+4. Commercial only does markup + contingency + margin + GST — never looks up a rate.
+5. Margin model — labour/plant carry their own sell; materials/subbies cost+markup;
+   MARGIN for the guardrail, MARKUP for pass-through (no double-count, no zero-margin).
+6. Validation can BLOCK send — a single block stops the quote leaving.
+7. Every engine appends to `engineAudit[]`; every added cost/flag records its trigger.
+
+Run the worked example (Mt Isa `pad_prep`, ground unknown, no site visit → a
+low-confidence **BLOCK** with a site-visit recommendation, plus a full internal
+cost sheet):
+
+```ts
+import { runExample, printExample } from './src/estimator'
+printExample('mtisa-earthworks')   // client quote + internal sheet + validation + audit
+```
+
+BusinessIntelligence lives behind `BIRepository` (in-memory stub provided;
+swap for Postgres/Supabase with no engine change). `npm test` runs the law +
+acceptance suite (swap BI → every dollar changes; bank/loose enforced).
+
+> This engine supersedes the earlier `src/domain` and `src/pipeline` iterations
+> (kept for now; `src/pipeline` still powers the `SiteQuote` UI). Converging the
+> app onto `src/estimator` is the next step.
+
 ## The binding domain contract (`src/domain`)
 
 `src/domain` is the **binding product-logic contract**: BusinessIntelligence as
