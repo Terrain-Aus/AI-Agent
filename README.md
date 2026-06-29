@@ -122,72 +122,12 @@ BusinessIntelligence lives behind `BIRepository` (in-memory stub provided;
 swap for Postgres/Supabase with no engine change). `npm test` runs the law +
 acceptance suite (swap BI → every dollar changes; bank/loose enforced).
 
-> This engine supersedes the earlier `src/domain` and `src/pipeline` iterations
-> (kept for now; `src/pipeline` still powers the `SiteQuote` UI). Converging the
-> app onto `src/estimator` is the next step.
-
-## The binding domain contract (`src/domain`)
-
-`src/domain` is the **binding product-logic contract**: BusinessIntelligence as
-the single source of truth, the one-way pipeline, and the four non-negotiable
-rules enforced **in the type system**, not by convention.
-
-- **R1 — Quantity never shows dollars.** `Quantity` is a branded number; a plain
-  `number` (or `Money`) cannot be assigned into a `QuantityResult` field — it's a
-  `tsc` error (`src/domain/typeAcceptance.ts` proves it via `@ts-expect-error`).
-- **R2 — Rate Engine never stores rates.** `resolveRate` is pure over the
-  projected `RateBook`; it never imports BI (architecture test).
-- **R3 — Commercial never looks up rates.** `runCommercial(rates, policy, risk)`
-  has no BI/RateBook handle and imports neither.
-- **R4 — Validation is the gate.** `buildFinalQuote` takes a
-  `ValidatedQuoteContext`; it cannot be called without a `ValidationResult`.
-
-Pipeline: `BI → projectRateBook → Quantity → Rate → Commercial → Validation →
-Final`. The `Pricing` primitive stores a cost/sell split and derives the sell
-(`resolveSellPrice`/`resolveMargin`); a cost change recalculates every non-pinned
-sell. `src/domain/seedQLD.ts` is a schema-valid QLD seed. `npm test` runs the
-acceptance suite (45 tests incl. the structural rule guards).
-
-> The earlier `src/pipeline` + `SiteQuote` flow is the working UI built on a
-> simpler interpretation; `src/domain` is the precise contract the screens will
-> migrate onto (BI setup form + editors are the next pass).
-
-## The quoting pipeline (product-logic contract)
-
-The quoting core is a **one-way pipeline of four pure, framework-agnostic,
-unit-tested engines** (`src/pipeline/`). **BusinessIntelligence** is the single
-source of truth — every engine reads from it; none keeps its own copy.
-
-```
-QuoteContext            (physical inputs only — NO money)
-  ──QuantityEngine(prod)──────────────►  QuantityResult   (physical only)
-  ──RateEngine(BI.rates)──────────────►  RateResult       (cost, pre-margin)
-  ──CommercialEngine(policy, risk)────►  CommercialResult (sell price)
-  ──ValidationEngine(qty, history)────►  ValidationResult (the gate)
-```
-
-The four rules are enforced structurally, not by convention:
-
-- **QuantityResult never shows dollars** — a compile-time `AssertNoMoney` guard
-  makes any monetary key in `QuoteContext`/`QuantityResult` a *type error*
-  (verified: adding one fails `tsc`). Plus a runtime test scans for money keys.
-- **RateEngine is stateless** — rates are passed as an argument; it persists
-  nothing and holds no rate store.
-- **CommercialEngine can't look up rates** — its signature has no rate handle and
-  an architecture test asserts it imports neither the seed nor the store.
-- **ValidationEngine is the gate** — `canSend()` is `false` on `status: 'fail'`;
-  the UI blocks the send action.
-
-Forgotten physical items found on the Hidden Cost + Risk screen **re-enter at
-Stage 1** (`addForgottenScopeItems`) so they flow Quantity → Rate → Commercial
-correctly — the one-way flow is never broken.
-
-BusinessIntelligence ships with a **SE-QLD seed** (`src/pipeline/seed.ts`) so the
-whole pipeline runs end-to-end before the BI setup form lands. Run the proofs:
-
-```bash
-npm test          # 26 tests: the four rules + e2e on seed
-```
+The working **Detailed site quote** UI (`/site/:id`, `src/screens/SiteQuote.tsx`)
+runs entirely through this engine: it captures the `RawInput` answers, calls
+`estimate(rawInput, bi)` live, and renders the quantities, hidden costs, risk,
+validation gate, client quote and internal sheet. There is **one authoritative
+estimating path** — the earlier `src/domain` and `src/pipeline` iterations were
+removed in the convergence.
 
 ## The Commercial Review — TerrainPro's signature moment
 

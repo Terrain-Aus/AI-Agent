@@ -8,9 +8,8 @@ import type { ChatMessage, JobActuals, JobSpec, Quote } from '../engine/types'
 import { estimate } from '../engine/estimator'
 import { DEFAULT_RATEBOOK, RateBook } from '../engine/pricing'
 import { DEFAULT_BUSINESS, deriveRateBook, type BusinessProfile } from '../engine/business'
-import type { BusinessIntelligence, QuoteContext, RiskInputs } from '../pipeline/types'
-import { SEED_BUSINESS_INTELLIGENCE } from '../pipeline/seed'
-import { emptyQuoteContext, defaultRiskInputs } from '../pipeline/defaults'
+import type { BusinessIntelligence, RawInput } from '../estimator'
+import { BRISBANE_BI } from '../estimator'
 import { EMPTY_SPEC } from '../engine/apprentice'
 import { uid } from '../lib/format'
 
@@ -30,9 +29,9 @@ export interface AuthUser {
 }
 
 /**
- * A pipeline quote stores only the INPUTS (QuoteContext + RiskInputs). The
- * priced results are always derived live via runPipeline(bi) so BusinessIntelligence
- * stays the single source of truth — no copy of rates is ever frozen into a quote.
+ * A site quote stores only the INPUTS (the estimator RawInput). Priced results
+ * are always derived live via estimate(rawInput, bi) so BusinessIntelligence
+ * stays the single source of truth — no rates are ever frozen into a quote.
  */
 export interface SiteQuote {
   id: string
@@ -41,16 +40,17 @@ export interface SiteQuote {
   status: 'draft' | 'validated' | 'sent'
   createdAt: number
   updatedAt: number
-  context: QuoteContext
-  risk: RiskInputs
+  rawInput: RawInput
 }
+
+const defaultRawInput = (): RawInput => ({ userText: '', answers: { jobType: 'pad_prep' } })
 
 interface AppState {
   user: AuthUser | null
   profile: CompanyProfile
   ratebook: RateBook
   business: BusinessProfile
-  /** BusinessIntelligence — single source of truth for the quoting pipeline. */
+  /** BusinessIntelligence — single source of truth for the estimating engine. */
   bi: BusinessIntelligence
   quotes: Quote[]
   siteQuotes: SiteQuote[]
@@ -69,8 +69,8 @@ interface AppState {
   createSiteQuote: (seed?: Partial<SiteQuote>) => SiteQuote
   getSiteQuote: (id: string) => SiteQuote | undefined
   updateSiteQuote: (id: string, patch: Partial<SiteQuote>) => void
-  updateSiteContext: (id: string, context: QuoteContext) => void
-  updateSiteRisk: (id: string, risk: RiskInputs) => void
+  /** Replace the answers map on a site quote's raw input. */
+  updateSiteAnswers: (id: string, answers: Record<string, unknown>) => void
   deleteSiteQuote: (id: string) => void
 
   createQuote: (seed?: Partial<Quote>) => Quote
@@ -100,7 +100,7 @@ export const useStore = create<AppState>()(
       profile: DEFAULT_PROFILE,
       ratebook: DEFAULT_RATEBOOK,
       business: DEFAULT_BUSINESS,
-      bi: SEED_BUSINESS_INTELLIGENCE,
+      bi: BRISBANE_BI,
       quotes: [],
       siteQuotes: [],
 
@@ -133,8 +133,7 @@ export const useStore = create<AppState>()(
           status: 'draft',
           createdAt: now,
           updatedAt: now,
-          context: seed?.context || emptyQuoteContext(),
-          risk: seed?.risk || defaultRiskInputs(),
+          rawInput: seed?.rawInput || defaultRawInput(),
         }
         set({ siteQuotes: [sq, ...get().siteQuotes] })
         return sq
@@ -142,10 +141,12 @@ export const useStore = create<AppState>()(
       getSiteQuote: (id) => get().siteQuotes.find((s) => s.id === id),
       updateSiteQuote: (id, patch) =>
         set({ siteQuotes: get().siteQuotes.map((s) => (s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s)) }),
-      updateSiteContext: (id, context) =>
-        set({ siteQuotes: get().siteQuotes.map((s) => (s.id === id ? { ...s, context, updatedAt: Date.now() } : s)) }),
-      updateSiteRisk: (id, risk) =>
-        set({ siteQuotes: get().siteQuotes.map((s) => (s.id === id ? { ...s, risk, updatedAt: Date.now() } : s)) }),
+      updateSiteAnswers: (id, answers) =>
+        set({
+          siteQuotes: get().siteQuotes.map((s) =>
+            s.id === id ? { ...s, rawInput: { ...s.rawInput, answers: { ...s.rawInput.answers, ...answers } }, updatedAt: Date.now() } : s,
+          ),
+        }),
       deleteSiteQuote: (id) => set({ siteQuotes: get().siteQuotes.filter((s) => s.id !== id) }),
 
       createQuote: (seed) => {
@@ -219,7 +220,17 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'terrainpro-store',
-      version: 1,
+      // v2: converged onto src/estimator — drop legacy pipeline-shaped bi /
+      // siteQuotes so the new estimator shapes apply from defaults.
+      version: 2,
+      migrate: (persisted: unknown, fromVersion: number) => {
+        const state = (persisted ?? {}) as Record<string, unknown>
+        if (fromVersion < 2) {
+          delete state.bi
+          delete state.siteQuotes
+        }
+        return state as never
+      },
     },
   ),
 )
