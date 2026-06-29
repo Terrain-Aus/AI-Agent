@@ -18,7 +18,7 @@ import {
   type PlantItem,
   type SubcontractorItem,
 } from '../engine/business'
-import { IconArrow, IconBack, IconCheck, IconCube, IconHard, IconPlant, IconReceipt, IconUsers } from '../components/icons'
+import { IconArrow, IconBack, IconBrain, IconCheck, IconCube, IconHard, IconPlant, IconReceipt, IconUsers } from '../components/icons'
 import { Progress } from '../components/ui'
 import { aud, uid } from '../lib/format'
 
@@ -51,8 +51,11 @@ export default function BusinessSetup() {
 
   const next = () => {
     if (isLast) {
+      const firstTime = isFirstRun
       updateBusiness({ configured: true })
-      navigate('/')
+      // After first-time setup, flow straight into a quote so the contractor
+      // immediately sees their rates in action. Editing later returns home.
+      navigate(firstTime ? '/new' : '/', firstTime ? { state: { justConfigured: true } } : undefined)
     } else {
       setStepIdx((i) => Math.min(STEPS.length - 1, i + 1))
       setOpenId(null)
@@ -68,14 +71,14 @@ export default function BusinessSetup() {
             <IconBack size={17} />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-bold text-slate-100">{isFirstRun ? 'Business setup' : 'Business profile'}</div>
+            <div className="truncate text-sm font-bold text-slate-100">{isFirstRun ? 'Set up your business' : 'Business profile'}</div>
             <div className="truncate text-[11px] text-slate-500">
-              {isFirstRun ? 'Your commercial source of truth — drives every quote' : `Configured · ${completeness.pct}% complete`}
+              {isFirstRun ? 'Takes about 2 minutes · these numbers price every quote' : `Live · prices every quote · ${completeness.pct}% complete`}
             </div>
           </div>
           {isFirstRun ? (
-            <button onClick={() => navigate('/')} className="text-[11px] font-semibold text-slate-500 hover:text-slate-300">
-              Skip for now →
+            <button onClick={() => navigate('/')} className="shrink-0 text-[11px] text-slate-600 hover:text-slate-400" title="You can finish this anytime from the dashboard">
+              Skip
             </button>
           ) : (
             <span className="pill border border-sage-500/30 bg-sage-500/10 text-sage-400">
@@ -116,6 +119,16 @@ export default function BusinessSetup() {
             )
           })}
         </div>
+      </div>
+
+      {/* Why this matters — feeds every quote */}
+      <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-sage-500/25 bg-sage-500/[0.06] p-3">
+        <IconBrain size={15} className="mt-0.5 shrink-0 text-sage-400" />
+        <p className="text-[11px] leading-relaxed text-slate-300">
+          {isFirstRun
+            ? "We've pre-filled typical Aussie rates so you're not starting from a blank page. Change what's yours, skip the rest — the apprentice uses these to price every quote you make."
+            : 'Every number here feeds your quotes automatically. Update it whenever your costs change.'}
+        </p>
       </div>
 
       {/* Section intro */}
@@ -308,7 +321,7 @@ export default function BusinessSetup() {
             </button>
           )}
           <button onClick={next} className="btn-primary !py-2.5 text-xs">
-            {isLast ? (isFirstRun ? 'Finish setup' : 'Save') : 'Next'}
+            {isLast ? (isFirstRun ? 'Finish & quote' : 'Save') : 'Next'}
             {isLast ? <IconCheck size={16} /> : <IconArrow size={16} />}
           </button>
         </div>
@@ -318,18 +331,18 @@ export default function BusinessSetup() {
 }
 
 const SECTION_TITLE: Record<StepKey, string> = {
-  labour: 'Labour rates',
-  plant: 'Plant & equipment',
-  materials: 'Materials',
-  subbies: 'Subcontractors',
-  billing: 'Billing rules',
+  labour: 'Your crew',
+  plant: 'Your gear',
+  materials: 'What you buy',
+  subbies: 'Who you bring in',
+  billing: 'How you charge',
 }
 const SECTION_HINT: Record<StepKey, string> = {
-  labour: 'Roles, cost vs charge, overtime & weekend loadings, minimum billable hours.',
-  plant: 'Machines, operating cost vs charge-out, float, attachments & productivity.',
-  materials: 'Cost rates, suppliers, waste % and regional price overrides.',
-  subbies: 'Cartage, pumps, traffic control, skips and other subbies.',
-  billing: 'Call-out, day rates, travel, fuel surcharge and weekend/holiday rules.',
+  labour: "What each role costs you and what you charge for it. We've pre-filled typical rates — change the ones that are yours.",
+  plant: 'Your machines: what they cost to run and what you hire them out at. Floats and attachments included.',
+  materials: 'Your regular supplies and what you pay. Waste % gets added to every order automatically.',
+  subbies: 'Pumps, cartage, traffic control, skips — the mob you bring in. Their rates flow straight into quotes.',
+  billing: 'Your ground rules: call-out, day rates, travel, fuel and weekend/holiday loadings.',
 }
 
 /* ─────────────── Billing editor ─────────────── */

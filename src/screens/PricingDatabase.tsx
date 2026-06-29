@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Card, SectionTitle } from '../components/ui'
-import { IconBack, IconDatabase } from '../components/icons'
+import { IconBack, IconDatabase, IconWarning } from '../components/icons'
 import { LOCATIONS } from '../engine/pricing'
 import type { RateBook } from '../engine/pricing'
 
@@ -66,6 +66,16 @@ export default function PricingDatabase() {
         <button onClick={resetRatebook} className="btn-ghost text-xs">
           Reset
         </button>
+      </div>
+
+      {/* Reassure normal users this layer is optional */}
+      <div className="flex items-start gap-2.5 rounded-xl border border-ink-400 bg-ink-700 p-3">
+        <IconWarning size={15} className="mt-0.5 shrink-0 text-slate-500" />
+        <p className="text-[11px] leading-relaxed text-slate-400">
+          Most contractors never need this screen. Set your real rates in{' '}
+          <button onClick={() => navigate('/business')} className="font-semibold text-sage-400 underline-offset-2 hover:underline">Business</button>
+          {' '}— this is the raw engine layer it feeds. Only touch it if you want to override an individual estimator rate by hand.
+        </p>
       </div>
 
       {GROUPS.map((group) => (

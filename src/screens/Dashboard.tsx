@@ -57,8 +57,8 @@ export default function Dashboard() {
               <IconHard size={18} />
             </div>
             <div className="text-xs">
-              <div className="font-semibold text-slate-100">Set up your business profile</div>
-              <div className="text-slate-400">Your rates, plant &amp; rules — the source of truth for every quote.</div>
+              <div className="font-semibold text-slate-100">Finish setting up your business · 2 min</div>
+              <div className="text-slate-400">Quote with your real rates, not generic ones. Feeds every quote.</div>
             </div>
           </div>
           <span className="text-sage-400">→</span>

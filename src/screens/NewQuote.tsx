@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { IconArrow, IconBrain, IconSpark } from '../components/icons'
+import { IconArrow, IconBrain, IconCheck, IconHard, IconSpark } from '../components/icons'
 import { parseDescription, buildSpec, openingLine, TRADE_LABELS } from '../engine/apprentice'
 import { JOB_TYPE_LABELS } from '../engine/pricing'
 
@@ -14,10 +14,13 @@ const EXAMPLES = [
 
 export default function NewQuote() {
   const navigate = useNavigate()
+  const location = useLocation()
   const createQuote = useStore((s) => s.createQuote)
   const addMessage = useStore((s) => s.addMessage)
+  const configured = useStore((s) => s.business.configured)
   const [text, setText] = useState('')
   const [client, setClient] = useState('')
+  const justConfigured = (location.state as { justConfigured?: boolean } | null)?.justConfigured === true
 
   const start = (description: string) => {
     const spec = buildSpec(parseDescription(description))
@@ -30,11 +33,39 @@ export default function NewQuote() {
 
   return (
     <div className="space-y-3">
+      {/* One-time confirmation straight after finishing Business setup */}
+      {justConfigured && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-sage-500/40 bg-sage-500/[0.1] p-3 animate-fade-up">
+          <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage-500/25 text-sage-400">
+            <IconCheck size={14} />
+          </div>
+          <p className="text-xs leading-relaxed text-slate-200">
+            <span className="font-semibold text-sage-400">You're set up.</span> Your rates are live — this quote (and every one after) is priced with them. Describe a job to see it in action.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 pt-1">
         <IconBrain size={18} className="text-sage-400" />
         <h1 className="text-lg font-extrabold text-slate-100">New quote</h1>
         <span className="ml-auto text-[11px] text-slate-500">Talk to it like you're on site</span>
       </div>
+
+      {/* Rate source — where the numbers come from */}
+      <button
+        onClick={() => navigate('/business')}
+        className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-[11px] ${
+          configured ? 'border-ink-400 bg-ink-700 text-slate-400' : 'border-amber/30 bg-amber/[0.07] text-slate-300'
+        }`}
+      >
+        <IconHard size={14} className={configured ? 'text-sage-400' : 'text-amber'} />
+        {configured ? (
+          <span className="flex-1">Priced with <span className="font-semibold text-slate-200">your business rates</span>.</span>
+        ) : (
+          <span className="flex-1">Using <span className="font-semibold text-amber">starter rates</span> — set up your Business profile to quote with yours.</span>
+        )}
+        <span className="text-slate-500">›</span>
+      </button>
 
       <div className="card p-3.5">
         <input
