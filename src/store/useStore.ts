@@ -7,10 +7,12 @@ import { persist } from 'zustand/middleware'
 import type { ChatMessage, JobActuals, JobSpec, Quote } from '../engine/types'
 import { estimate } from '../engine/estimator'
 import { DEFAULT_RATEBOOK, RateBook } from '../engine/pricing'
+import { DEFAULT_BUSINESS, deriveRateBook, type BusinessProfile } from '../engine/business'
 import { EMPTY_SPEC } from '../engine/apprentice'
 import { uid } from '../lib/format'
 
-export interface BusinessProfile {
+/** Company identity shown on quotes/invoices (distinct from the rate-engine BusinessProfile). */
+export interface CompanyProfile {
   businessName: string
   contactName: string
   abn: string
@@ -26,15 +28,18 @@ export interface AuthUser {
 
 interface AppState {
   user: AuthUser | null
-  profile: BusinessProfile
+  profile: CompanyProfile
   ratebook: RateBook
+  business: BusinessProfile
   quotes: Quote[]
 
   login: (email: string, name?: string) => void
   logout: () => void
-  updateProfile: (p: Partial<BusinessProfile>) => void
+  updateProfile: (p: Partial<CompanyProfile>) => void
   updateRatebook: (r: Partial<RateBook>) => void
   resetRatebook: () => void
+  /** Update the business profile; projects rates into the engine ratebook. */
+  updateBusiness: (b: Partial<BusinessProfile>) => void
 
   createQuote: (seed?: Partial<Quote>) => Quote
   getQuote: (id: string) => Quote | undefined
@@ -47,7 +52,7 @@ interface AppState {
   deleteQuote: (id: string) => void
 }
 
-const DEFAULT_PROFILE: BusinessProfile = {
+const DEFAULT_PROFILE: CompanyProfile = {
   businessName: 'Terrain Contracting Co.',
   contactName: 'Site Supervisor',
   abn: '12 345 678 901',
@@ -62,6 +67,7 @@ export const useStore = create<AppState>()(
       user: null,
       profile: DEFAULT_PROFILE,
       ratebook: DEFAULT_RATEBOOK,
+      business: DEFAULT_BUSINESS,
       quotes: [],
 
       login: (email, name) =>
@@ -71,6 +77,14 @@ export const useStore = create<AppState>()(
       updateProfile: (p) => set({ profile: { ...get().profile, ...p } }),
       updateRatebook: (r) => set({ ratebook: { ...get().ratebook, ...r } }),
       resetRatebook: () => set({ ratebook: DEFAULT_RATEBOOK }),
+
+      updateBusiness: (b) => {
+        const business = { ...get().business, ...b }
+        // Once configured, the profile is the source of truth: project its
+        // rates into the flat ratebook every quote already consumes.
+        const ratebook = business.configured ? deriveRateBook(business, get().ratebook) : get().ratebook
+        set({ business, ratebook })
+      },
 
       createQuote: (seed) => {
         const now = Date.now()

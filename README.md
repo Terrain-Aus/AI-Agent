@@ -69,6 +69,23 @@ stays usable on a phone on site.
 
 The app runs **100% offline** out of the box: a deterministic on-device estimation engine and a rule-based apprentice mean you can demo the whole workflow with **no API keys and no backend**. Supabase and the live LLM apprentice are drop-in upgrades, not requirements.
 
+## Business Profile — the commercial source of truth
+
+A guided **Business Setup wizard** (`/business`) where the contractor configures
+the numbers behind every quote, across five areas:
+
+1. **Labour** — roles, cost/hr vs charge/hr, overtime & weekend multipliers, minimum billable hours (with a live per-role margin readout).
+2. **Plant & Equipment** — machines, operating cost vs charge-out, float (mobilisation), attachments, productivity defaults.
+3. **Materials** — cost rates, default supplier, waste %, units, and per-region price overrides.
+4. **Subcontractors** — cartage, concrete pumps, traffic control, skip bins and others.
+5. **Billing Rules** — minimum call-out, half/full-day rates, travel charging, fuel surcharge, weekend & public-holiday multipliers.
+
+It works as a step-by-step wizard on first run and as an editable profile after.
+On save the profile **projects into the engine rate book** (`deriveRateBook`,
+`src/engine/business.ts`) — the same `RateBook` every quote already consumes — so
+configuring it here updates pricing everywhere **without changing the estimator or
+the Quote Workspace**.
+
 ## The Commercial Review — TerrainPro's signature moment
 
 The point of TerrainPro isn't a pretty dashboard — it's the *operating system of a

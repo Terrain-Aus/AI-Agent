@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Empty } from '../components/ui'
-import { IconArrow, IconBrain, IconDoc, IconPlus, IconWarning } from '../components/icons'
+import { IconArrow, IconBrain, IconDoc, IconHard, IconPlus, IconWarning } from '../components/icons'
 import { aud, relativeTime } from '../lib/format'
 import { learnFrom } from '../engine/learning'
 import { buildMemory } from '../engine/memory'
@@ -24,6 +24,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const user = useStore((s) => s.user)
   const quotes = useStore((s) => s.quotes)
+  const business = useStore((s) => s.business)
   const model = useMemo(() => learnFrom(quotes), [quotes])
   const memory = useMemo(() => buildMemory(quotes), [quotes])
   const [learnOpen, setLearnOpen] = useState(true)
@@ -47,6 +48,22 @@ export default function Dashboard() {
           <IconPlus size={15} /> New
         </button>
       </div>
+
+      {/* First-run nudge: configure the commercial source of truth */}
+      {!business.configured && (
+        <button onClick={() => navigate('/business')} className="flex w-full items-center justify-between gap-2 rounded-xl border border-sage-500/30 bg-sage-500/[0.06] p-3 text-left transition hover:bg-sage-500/[0.1]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sage-500/20 text-sage-400">
+              <IconHard size={18} />
+            </div>
+            <div className="text-xs">
+              <div className="font-semibold text-slate-100">Set up your business profile</div>
+              <div className="text-slate-400">Your rates, plant &amp; rules — the source of truth for every quote.</div>
+            </div>
+          </div>
+          <span className="text-sage-400">→</span>
+        </button>
+      )}
 
       {/* Dense KPI row */}
       <div className="grid grid-cols-4 gap-1.5">

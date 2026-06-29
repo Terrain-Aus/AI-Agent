@@ -12,7 +12,7 @@ import { Logo, Progress } from './ui'
 import BottomSheet from './BottomSheet'
 import { apprenticeHealth, streamApprentice } from '../lib/apprenticeClient'
 import type { ApprenticeContext, ApprenticeHealth, PayloadMessage } from '../lib/apprenticeProtocol'
-import type { BusinessProfile } from '../store/useStore'
+import type { CompanyProfile } from '../store/useStore'
 import type { RateBook } from '../engine/pricing'
 
 const READY_TEXT =
@@ -117,7 +117,7 @@ export default function ApprenticeDrawer({
     spec: quote.spec,
     ratebook: ratebook as RateBook,
     prefs: {
-      businessName: (profile as BusinessProfile).businessName,
+      businessName: (profile as CompanyProfile).businessName,
       defaultMarginPct: ratebook.defaultMarginPct,
       region: quote.spec.location || undefined,
     },

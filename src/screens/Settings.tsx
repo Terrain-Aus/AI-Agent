@@ -40,6 +40,26 @@ export default function Settings() {
       </Card>
 
       <Card>
+        <SectionTitle hint="commercial source of truth">Rate engine</SectionTitle>
+        <div className="space-y-2">
+          <button onClick={() => navigate('/business')} className="flex w-full items-center justify-between rounded-xl border border-ink-400 bg-ink-500 px-3.5 py-3 text-left transition hover:border-sage-500">
+            <div>
+              <div className="text-sm font-semibold text-slate-200">Business profile</div>
+              <div className="text-xs text-slate-500">Labour, plant, materials, subbies &amp; billing rules</div>
+            </div>
+            <span className="text-sage-400">→</span>
+          </button>
+          <button onClick={() => navigate('/pricing')} className="flex w-full items-center justify-between rounded-xl border border-ink-400 bg-ink-500 px-3.5 py-3 text-left transition hover:border-sage-500">
+            <div>
+              <div className="text-sm font-semibold text-slate-200">Advanced rate book</div>
+              <div className="text-xs text-slate-500">Low-level engine rates &amp; location loadings</div>
+            </div>
+            <span className="text-sage-400">→</span>
+          </button>
+        </div>
+      </Card>
+
+      <Card>
         <SectionTitle>Integrations</SectionTitle>
         <div className="space-y-3">
           <IntegrationRow

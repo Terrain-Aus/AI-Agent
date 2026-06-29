@@ -63,3 +63,18 @@ export const IconLogout = ({ size = 20, className }: P) => (
 export const IconSpark = ({ size = 20, className }: P) => (
   <svg {...base(size)} className={className}><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
 )
+export const IconWrench = ({ size = 20, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z" /></svg>
+)
+export const IconCube = ({ size = 20, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><path d="m3.3 7 8.7 5 8.7-5M12 22V12" /></svg>
+)
+export const IconUsers = ({ size = 20, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" /></svg>
+)
+export const IconReceipt = ({ size = 20, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5L20 22V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5 4 2z" /><path d="M8 7h8M8 11h8M8 15h5" /></svg>
+)
+export const IconPlant = ({ size = 20, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M3 17h4l2-5h6l2 5h2" /><circle cx="7" cy="19" r="2" /><circle cx="17" cy="19" r="2" /><path d="M9 12V7h4l3 5" /></svg>
+)

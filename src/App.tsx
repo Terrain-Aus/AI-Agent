@@ -7,6 +7,7 @@ import Dashboard from './screens/Dashboard'
 import NewQuote from './screens/NewQuote'
 import QuoteWorkspace from './screens/QuoteWorkspace'
 import PricingDatabase from './screens/PricingDatabase'
+import BusinessSetup from './screens/BusinessSetup'
 import Settings from './screens/Settings'
 import Quotes from './screens/Quotes'
 
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/quote/:id/hidden-costs" element={<RequireAuth><QuoteWorkspace initialTab="risks" /></RequireAuth>} />
       <Route path="/quote/:id/details" element={<RequireAuth><QuoteWorkspace initialTab="details" /></RequireAuth>} />
 
+      <Route path="/business" element={<RequireAuth><BusinessSetup /></RequireAuth>} />
       <Route path="/pricing" element={<RequireAuth><PricingDatabase /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />

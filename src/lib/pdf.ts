@@ -3,7 +3,7 @@
 
 import { jsPDF } from 'jspdf'
 import type { Quote } from '../engine/types'
-import type { BusinessProfile } from '../store/useStore'
+import type { CompanyProfile } from '../store/useStore'
 import { JOB_TYPE_LABELS, FINISH_LABELS } from '../engine/pricing'
 
 const SAGE: [number, number, number] = [88, 135, 87]
@@ -12,7 +12,7 @@ const GREY: [number, number, number] = [110, 120, 130]
 
 type DocKind = 'quote' | 'invoice'
 
-export function generateDocument(quote: Quote, profile: BusinessProfile, kind: DocKind = 'quote'): jsPDF {
+export function generateDocument(quote: Quote, profile: CompanyProfile, kind: DocKind = 'quote'): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const W = 210
   const M = 16
@@ -163,13 +163,13 @@ export function generateDocument(quote: Quote, profile: BusinessProfile, kind: D
   return doc
 }
 
-export function downloadDocument(quote: Quote, profile: BusinessProfile, kind: DocKind = 'quote') {
+export function downloadDocument(quote: Quote, profile: CompanyProfile, kind: DocKind = 'quote') {
   const doc = generateDocument(quote, profile, kind)
   const name = `${kind}-${(quote.client || 'client').replace(/\s+/g, '-').toLowerCase()}-${quote.id.slice(-6)}.pdf`
   doc.save(name)
 }
 
-export function documentDataUri(quote: Quote, profile: BusinessProfile, kind: DocKind = 'quote'): string {
+export function documentDataUri(quote: Quote, profile: CompanyProfile, kind: DocKind = 'quote'): string {
   return generateDocument(quote, profile, kind).output('datauristring')
 }
 

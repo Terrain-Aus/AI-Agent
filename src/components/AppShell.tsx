@@ -7,8 +7,8 @@ import { Logo } from './ui'
 import {
   IconBrain,
   IconDashboard,
-  IconDatabase,
   IconDoc,
+  IconHard,
   IconLogout,
   IconPlus,
   IconSettings,
@@ -19,7 +19,7 @@ const nav = [
   { to: '/', label: 'Dashboard', icon: IconDashboard, end: true },
   { to: '/new', label: 'New Quote', icon: IconPlus, end: false },
   { to: '/quotes', label: 'Quotes', icon: IconDoc, end: false },
-  { to: '/pricing', label: 'Pricing', icon: IconDatabase, end: false },
+  { to: '/business', label: 'Business', icon: IconHard, end: false },
   { to: '/settings', label: 'Settings', icon: IconSettings, end: false },
 ]
 
