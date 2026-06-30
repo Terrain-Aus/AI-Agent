@@ -9,6 +9,7 @@ import { useStore } from '../store/useStore'
 import { estimate } from '../engine/estimator'
 import { riskSummary } from '../engine/hiddenCosts'
 import { commercialReview, VERDICT_LABEL, type Verdict } from '../engine/review'
+import { foremanReview } from '../engine/foreman'
 import { JOB_TYPE_LABELS, FINISH_LABELS, SOIL_LABELS, LOCATIONS } from '../engine/pricing'
 import { TRADE_LABELS } from '../engine/apprentice'
 import { aud, pct } from '../lib/format'
@@ -25,6 +26,7 @@ import {
 } from '../components/icons'
 import ApprenticeDrawer from '../components/ApprenticeDrawer'
 import JobDebriefSheet from '../components/JobDebriefSheet'
+import ForemanPanel from '../components/ForemanPanel'
 import type { Access, CostCategory, Finish, HiddenCost, JobType, SoilType, Trade } from '../engine/types'
 
 type Tab = 'summary' | 'breakdown' | 'risks' | 'details'
@@ -169,10 +171,13 @@ function NotPriced({ onAsk }: { onAsk: () => void }) {
 function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
   const quote = useStore((s) => s.getQuote(id))!
   const profile = useStore((s) => s.profile)
+  const businessConfigured = useStore((s) => s.business.configured)
   const [showSummary, setShowSummary] = useState(false)
   const [debrief, setDebrief] = useState(false)
   const est = quote.estimate!
   const review = commercialReview(quote.spec, est)
+  // Foreman's pre-export review — the last set of eyes before the quote leaves.
+  const foreman = foremanReview(quote, { businessConfigured })
 
   return (
     <div className="space-y-3 animate-fade-up">
@@ -206,12 +211,25 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
         {showSummary && <p className="border-t border-ink-400 px-3.5 py-3 text-sm leading-relaxed text-slate-300 animate-fade-up">{est.summary}</p>}
       </div>
 
+      {/* Foreman review — final gate before the quote leaves the door */}
+      <ForemanPanel report={foreman} />
+
       {/* Outcome + export — compact */}
       <div className="card p-3.5">
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Outcome · feeds learning</div>
         <Outcome id={id} />
+        {!foreman.canExport && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            <IconWarning size={14} className="mt-0.5 shrink-0" />
+            <span>Foreman's holding export — {foreman.blockers.length} blocker{foreman.blockers.length === 1 ? '' : 's'} to clear first. Fix the items above, then re-price.</span>
+          </div>
+        )}
         <div className="mt-3 flex gap-2">
-          <button onClick={() => downloadDocument(quote, profile, 'quote')} className="btn-primary flex-1 text-xs">
+          <button
+            onClick={() => downloadDocument(quote, profile, 'quote')}
+            disabled={!foreman.canExport}
+            className="btn-primary flex-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+          >
             <IconDownload size={15} /> Quote PDF
           </button>
           {(quote.status === 'won' || quote.status === 'invoiced') && (
