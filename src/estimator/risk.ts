@@ -4,7 +4,7 @@
 // lock the fixed price. (Measures UNCERTAINTY; Validation checks completeness.)
 
 import type { ConfidenceTier, Quote, QuoteType } from './types'
-import { audit } from './types'
+import { audit, isStructural } from './types'
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -64,6 +64,17 @@ export function runRisk(q: Quote, allowFixedPriceBelowConfidence: number): Quote
     if (q.jobType === 'footings_piers') {
       flags.push('Footing/pier depth subject to engineer & founding material')
       variationTriggers.push('Rock or unstable ground in footings → depth/volume increase')
+    }
+    if (isStructural(q.jobType)) {
+      flags.push("Structural element — engineer's design, certification & inspection required")
+      variationTriggers.push("Reo/spec change from engineer's drawings → variation")
+      if (q.inputs.engineerDetails !== true) {
+        confidence -= 0.05
+        assumptions.push("Priced to assumed structural detail; engineer's drawings & spec to be confirmed")
+      }
+      if (q.jobType === 'suspended_slab') {
+        flags.push('Suspended slab — propping/back-prop & construction loading')
+      }
     }
   }
 

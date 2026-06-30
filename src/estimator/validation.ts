@@ -3,7 +3,7 @@
 // stops the quote leaving (LAW 6).
 
 import type { PricingPolicy, Quote, ValidationFinding, ValidationStatus } from './types'
-import { audit } from './types'
+import { audit, isStructural } from './types'
 import { TRUCK_CAPACITY_M3 } from './seed'
 
 export function runValidation(q: Quote, policy: PricingPolicy): Quote {
@@ -53,6 +53,12 @@ export function runValidation(q: Quote, policy: PricingPolicy): Quote {
     }
     if ((q.jobType === 'exposed_aggregate_driveway' || /exposed/i.test(finish)) && q.inputs.finishSampleApproved !== true) {
       findings.push({ severity: 'warn', check: 'finishSample', detail: 'Exposed-aggregate finish not signed off against a sample — colour/exposure variance risk.' })
+    }
+    if (isStructural(q.jobType)) {
+      if (q.inputs.engineerDetails !== true) {
+        findings.push({ severity: 'warn', check: 'engineerDetails', detail: "Structural element: engineer's drawings/specification not confirmed — reo, grade and cover must come from the engineer before pricing is firm." })
+      }
+      findings.push({ severity: 'warn', check: 'reoInspection', detail: 'Reo inspection hold point: certifier must inspect & approve the reinforcement before the pour can proceed.' })
     }
   }
 

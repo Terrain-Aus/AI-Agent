@@ -28,6 +28,11 @@ const JOB_TYPES: Record<string, JobTypeDef> = {
   shed_slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase', 'thickenedEdge'], derived: { requiresImport: true } },
   crossover: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase', 'councilApproval', 'trafficControl'], derived: { requiresImport: true } },
   paths_flatwork: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access'], derived: {} },
+  // structural concreting — engineered elements (reo by tonnage, formwork, certified)
+  suspended_slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'propHeightM', 'engineerDetails'], derived: {} },
+  columns: { trade: 'concreting', required: ['columnCount', 'columnWidthMm', 'columnDepthMm', 'columnHeightM', 'reinforcement', 'access', 'engineerDetails'], derived: {} },
+  beams: { trade: 'concreting', required: ['beamLengthM', 'beamWidthMm', 'beamDepthMm', 'reinforcement', 'access', 'engineerDetails'], derived: {} },
+  structural_wall: { trade: 'concreting', required: ['wallLengthM', 'wallHeightM', 'wallThicknessMm', 'reinforcement', 'access', 'engineerDetails'], derived: {} },
   // legacy aliases (kept so existing inputs/UI keep resolving)
   house_slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase'], derived: {} },
   driveway: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase'], derived: { requiresImport: true } },
@@ -41,6 +46,11 @@ function classify(text: string): string {
   if (/spoil removal|cart.*spoil only/.test(t)) return 'spoil_removal'
   if (/bulk excavat/.test(t)) return 'bulk_excavation'
   if (/site cut|cut to level/.test(t)) return 'site_cut'
+  // structural concreting
+  if (/suspended slab|susp\.? slab|elevated slab|bondek|formdeck/.test(t)) return 'suspended_slab'
+  if (/\bcolumns?\b|blade column/.test(t)) return 'columns'
+  if (/\bbeams?\b|ground beam|grade beam|capping beam/.test(t)) return 'beams'
+  if (/structural wall|core.?fill|reinforced concrete wall|rc wall|concrete wall/.test(t)) return 'structural_wall'
   if (/slab|driveway|concret|footing|path|patio/.test(t)) return /driveway/.test(t) ? 'driveway' : 'house_slab'
   return 'pad_prep'
 }

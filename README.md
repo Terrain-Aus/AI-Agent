@@ -133,12 +133,30 @@ the same engine and the same 7 LAWS:
 | `crossover` (council driveway) | N32, 150 mm sub-base | council/permit/traffic/access **validation warnings**, council inspection fee, traffic spotter |
 | `paths_flatwork` | N25, more frequent joints | — |
 
-The concrete **pump** is priced through the Rate service as a subbie (LAW 3 —
-never an invented flat fee). Concreting tests live in
-`src/estimator/__tests__/concreting.test.ts` (different job types → different
+**Structural concreting** (engineered elements) reinforces by **tonnage**
+(kg/m³ × volume), prices **structural formwork** by contact area, and splits
+labour into placing (`Concreter`) and reo fixing (`Steel Fixer`). Every
+structural element is boom-pumped, certified and cured:
+
+| Job type | Drives | Triggers |
+| --- | --- | --- |
+| `suspended_slab` | N32, soffit-deck formwork, 90 kg/m³ reo, trowel finish | boom pump, certification + reo inspection, curing, back-prop hire if prop height > 3 m; propping/loading risk |
+| `columns` | N40, box formwork, 200 kg/m³ reo | boom pump, certification, crane/hoist if > 3 m |
+| `beams` | N32, side+soffit formwork, 160 kg/m³ reo | boom pump, certification |
+| `structural_wall` | N32, both-face formwork, 110 kg/m³ reo | boom pump, certification, curing, crane/hoist if > 3 m |
+
+Structural quotes carry an **engineer's-details** confidence rule and a
+**reo-inspection hold-point** validation warning; without the engineer's spec a
+Fixed price is held at the confidence gate.
+
+The concrete **pump** (flatwork) and **boom pump** (structural) are both priced
+through the Rate service as subbies (LAW 3 — never an invented flat fee).
+Concreting tests live in `src/estimator/__tests__/concreting.test.ts` and
+`src/estimator/__tests__/structural.test.ts` (different job types → different
 quantities & hidden costs; exposed-agg → sealing/washout/finish risk; crossover
-→ council/permit/traffic/access warnings; low ground/access confidence still
-BLOCKs; swap BI → dollars change, quantities don't).
+→ council/permit/traffic/access warnings; structural → reo tonnage + formwork +
+certification + boom pump; low ground/access confidence still BLOCKs; swap BI →
+dollars change, quantities don't).
 
 BusinessIntelligence lives behind `BIRepository` (in-memory stub provided;
 swap for Postgres/Supabase with no engine change). `npm test` runs the law +

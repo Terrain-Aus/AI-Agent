@@ -3,7 +3,7 @@
 // quantities (waste applied later by Rate). Enforces BANK vs LOOSE (LAW 2).
 
 import type { BusinessIntelligence, MachineClass, MaterialClass, Quote } from './types'
-import { audit } from './types'
+import { audit, isStructural } from './types'
 import { SWELL, DENSITY, TRUCK_CAPACITY_M3, digRate } from './seed'
 
 const num = (v: unknown, d = 0): number => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' && !isNaN(+v) ? +v : d)
@@ -123,6 +123,7 @@ function reinforced(v: unknown): boolean {
 }
 
 function runConcretingQuantity(q: Quote): Quote {
+  if (isStructural(q.jobType)) return runStructuralQuantity(q)
   if (q.jobType === 'footings_piers') return runFootingsQuantity(q)
 
   const cfg = CONCRETING[q.jobType ?? 'slab'] ?? CONCRETING.slab
@@ -196,6 +197,89 @@ function runFootingsQuantity(q: Quote): Quote {
     engine: 'Quantity',
     rule: 'footings-piers',
     result: `footing=${footingVol}m³ + ${piers} piers ${pierVol}m³ = ${vol}m³ (N32); reo=${q.quantities.reoBarLm}lm place=${q.quantities.placeFinishHours}h`,
+  })
+  return q
+}
+
+/* ════════════════ Structural concreting (DOLLAR-FREE) ════════════════ */
+
+interface StructCfg {
+  grade: 'Concrete N32' | 'Concrete N40'
+  pourRate: number // m³/hr placed (pumped)
+  reoKgPerM3: number // engineered reinforcement intensity
+  fixHrsPerT: number // steel-fixer hours per tonne of reo
+}
+
+const STRUCTURAL: Record<string, StructCfg> = {
+  suspended_slab: { grade: 'Concrete N32', pourRate: 8, reoKgPerM3: 90, fixHrsPerT: 14 },
+  columns: { grade: 'Concrete N40', pourRate: 4, reoKgPerM3: 200, fixHrsPerT: 18 },
+  beams: { grade: 'Concrete N32', pourRate: 5, reoKgPerM3: 160, fixHrsPerT: 16 },
+  structural_wall: { grade: 'Concrete N32', pourRate: 6, reoKgPerM3: 110, fixHrsPerT: 13 },
+}
+
+function runStructuralQuantity(q: Quote): Quote {
+  const cfg = STRUCTURAL[q.jobType ?? 'suspended_slab'] ?? STRUCTURAL.suspended_slab
+  let vol = 0
+  let formM2 = 0
+  let curingArea = 0
+  let detail = ''
+
+  if (q.jobType === 'suspended_slab') {
+    const area = num(q.inputs.areaM2)
+    const t = num(q.inputs.thicknessMm, 200)
+    vol = round2((area * t) / 1000)
+    const perim = q.inputs.perimeterM != null ? num(q.inputs.perimeterM) : round2(4.2 * Math.sqrt(Math.max(area, 0)))
+    formM2 = round2(area + perim * (t / 1000)) // soffit deck + edge form
+    curingArea = area
+    q.quantities.areaM2 = area
+    q.quantities.placeFinishHours = round2(Math.max(3, vol / cfg.pourRate + area / 25)) // place + trowel finish
+    detail = `suspended slab ${area}m²×${t}mm`
+  } else if (q.jobType === 'columns') {
+    const n = Math.max(0, Math.round(num(q.inputs.columnCount)))
+    const w = num(q.inputs.columnWidthMm, 300)
+    const d = num(q.inputs.columnDepthMm, 300)
+    const h = num(q.inputs.columnHeightM, 3)
+    vol = round2(n * (w / 1000) * (d / 1000) * h)
+    formM2 = round2(n * ((2 * (w + d)) / 1000) * h)
+    q.quantities.placeFinishHours = round2(Math.max(3, vol / cfg.pourRate + n * 0.3))
+    detail = `${n} columns ${w}×${d}mm × ${h}m`
+  } else if (q.jobType === 'beams') {
+    const L = num(q.inputs.beamLengthM)
+    const w = num(q.inputs.beamWidthMm, 300)
+    const d = num(q.inputs.beamDepthMm, 450)
+    vol = round2(L * (w / 1000) * (d / 1000))
+    formM2 = round2(L * ((2 * d + w) / 1000)) // two sides + soffit
+    q.quantities.placeFinishHours = round2(Math.max(3, vol / cfg.pourRate))
+    detail = `beams ${L}m ${w}×${d}mm`
+  } else {
+    // structural_wall
+    const L = num(q.inputs.wallLengthM)
+    const h = num(q.inputs.wallHeightM, 2.4)
+    const t = num(q.inputs.wallThicknessMm, 200)
+    vol = round2(L * h * (t / 1000))
+    formM2 = round2(2 * L * h) // both faces
+    curingArea = round2(L * h)
+    q.quantities.areaM2 = curingArea
+    q.quantities.placeFinishHours = round2(Math.max(3, vol / cfg.pourRate))
+    detail = `wall ${L}m × ${h}m × ${t}mm`
+  }
+
+  const reoTonnes = round2((vol * cfg.reoKgPerM3) / 1000)
+  const fixHours = round2(reoTonnes * cfg.fixHrsPerT)
+  const reinf = reinforced(q.inputs.reinforcement)
+
+  q.quantities.concreteVolumeM3 = vol
+  q.quantities.formworkM2 = formM2
+  q.quantities.reoTonnes = reinf ? reoTonnes : 0
+  q.quantities.steelFixHours = reinf ? fixHours : 0
+  q.quantities.meshSheets = 0
+  q.inputs.__concreteGrade = cfg.grade
+  q.inputs.__curingArea = curingArea
+
+  audit(q, {
+    engine: 'Quantity',
+    rule: 'structural',
+    result: `${detail} → vol=${vol}m³ (${cfg.grade}) form=${formM2}m² reo=${q.quantities.reoTonnes}t (${cfg.reoKgPerM3}kg/m³) fix=${q.quantities.steelFixHours}h place=${q.quantities.placeFinishHours}h`,
   })
   return q
 }

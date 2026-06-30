@@ -45,6 +45,7 @@ export const BRISBANE_BI: BusinessIntelligence = {
     { role: 'Operator', cost: 62, preferredSell: 110, minimumSell: 95, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.5, sundayMultiplier: 2, minimumBillableHours: 4 },
     { role: 'Labourer', cost: 48, preferredSell: 85, minimumSell: 70, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.5, sundayMultiplier: 2, minimumBillableHours: 4 },
     { role: 'Concreter', cost: 65, preferredSell: 98, minimumSell: 82, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.5, sundayMultiplier: 2, minimumBillableHours: 4 },
+    { role: 'Steel Fixer', cost: 60, preferredSell: 95, minimumSell: 80, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.5, sundayMultiplier: 2, minimumBillableHours: 4 },
   ],
   plant: [
     {
@@ -63,10 +64,14 @@ export const BRISBANE_BI: BusinessIntelligence = {
     // Concreting supply (single rate = COST; markup applied by Commercial)
     { name: 'Concrete N25', supplier: 'Plant', rate: 285, unit: 'm3', wastePct: 0.05, minimumOrder: 1, smallLoadFee: 180 },
     { name: 'Concrete N32', supplier: 'Plant', rate: 312, unit: 'm3', wastePct: 0.05, minimumOrder: 1, smallLoadFee: 180 },
+    { name: 'Concrete N40', supplier: 'Plant', rate: 340, unit: 'm3', wastePct: 0.05, minimumOrder: 1, smallLoadFee: 180 },
     { name: 'Reo Mesh SL72', supplier: 'Steel', rate: 92, unit: 'each', wastePct: 0.1 },
     { name: 'Reo Bar N12', supplier: 'Steel', rate: 4.6, unit: 'm', wastePct: 0.05 },
+    { name: 'Structural Reo (supply)', supplier: 'Steel', rate: 2400, unit: 'tonne', wastePct: 0.05 },
     { name: 'Edge Formwork', supplier: 'Timber', rate: 14, unit: 'm', wastePct: 0.1 },
+    { name: 'Structural Formwork (supply & fix)', supplier: 'Formwork', rate: 95, unit: 'm2', wastePct: 0.05 },
     { name: 'Aggregate Sealer', supplier: 'Trade', rate: 7, unit: 'm2', wastePct: 0.05 },
+    { name: 'Curing Compound', supplier: 'Trade', rate: 3.5, unit: 'm2', wastePct: 0.05 },
   ],
   subcontractors: [
     { type: 'Cartage', billing: ['per_load'], perLoad: 165, minimumCharge: 330 },
@@ -88,6 +93,7 @@ export const MT_ISA_BI: BusinessIntelligence = {
     { role: 'Operator', cost: 78, preferredSell: 145, minimumSell: 125, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.6, sundayMultiplier: 2.2, minimumBillableHours: 4 },
     { role: 'Labourer', cost: 60, preferredSell: 110, minimumSell: 92, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.6, sundayMultiplier: 2.2, minimumBillableHours: 4 },
     { role: 'Concreter', cost: 82, preferredSell: 132, minimumSell: 112, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.6, sundayMultiplier: 2.2, minimumBillableHours: 4 },
+    { role: 'Steel Fixer', cost: 78, preferredSell: 124, minimumSell: 104, targetMargin: 0.35, overtimeMultiplier: 1.5, saturdayMultiplier: 1.6, sundayMultiplier: 2.2, minimumBillableHours: 4 },
   ],
   plant: [
     {
@@ -106,10 +112,14 @@ export const MT_ISA_BI: BusinessIntelligence = {
     // Concreting supply — remote freight loads concrete & steel materially higher.
     { name: 'Concrete N25', supplier: 'Regional Plant', rate: 360, unit: 'm3', wastePct: 0.05, minimumOrder: 1, smallLoadFee: 260, regionalFreight: 0.1 },
     { name: 'Concrete N32', supplier: 'Regional Plant', rate: 395, unit: 'm3', wastePct: 0.05, minimumOrder: 1, smallLoadFee: 260, regionalFreight: 0.1 },
+    { name: 'Concrete N40', supplier: 'Regional Plant', rate: 430, unit: 'm3', wastePct: 0.05, minimumOrder: 1, smallLoadFee: 260, regionalFreight: 0.1 },
     { name: 'Reo Mesh SL72', supplier: 'Regional Steel', rate: 138, unit: 'each', wastePct: 0.1 },
     { name: 'Reo Bar N12', supplier: 'Regional Steel', rate: 6.4, unit: 'm', wastePct: 0.05 },
+    { name: 'Structural Reo (supply)', supplier: 'Regional Steel', rate: 3100, unit: 'tonne', wastePct: 0.05, regionalFreight: 0.1 },
     { name: 'Edge Formwork', supplier: 'Timber', rate: 20, unit: 'm', wastePct: 0.1 },
+    { name: 'Structural Formwork (supply & fix)', supplier: 'Formwork', rate: 130, unit: 'm2', wastePct: 0.05 },
     { name: 'Aggregate Sealer', supplier: 'Trade', rate: 11, unit: 'm2', wastePct: 0.05 },
+    { name: 'Curing Compound', supplier: 'Trade', rate: 5, unit: 'm2', wastePct: 0.05 },
   ],
   subcontractors: [
     { type: 'Cartage', billing: ['per_load'], perLoad: 240, minimumCharge: 480 },

@@ -5,6 +5,11 @@
 
 /* ════════════════ shared atoms ════════════════ */
 export type Trade = 'earthworks' | 'concreting' | 'landscaping'
+
+/** Structural concreting job types — engineered elements (reo by tonnage,
+ * structural formwork, certified). Distinct from on-ground flatwork. */
+export const STRUCTURAL_JOBS = new Set(['suspended_slab', 'columns', 'beams', 'structural_wall'])
+export const isStructural = (jobType?: string): boolean => !!jobType && STRUCTURAL_JOBS.has(jobType)
 export type InputSource = 'measured' | 'stated' | 'eyeballed' | 'unknown'
 export type MaterialClass = 'sand' | 'gravel' | 'common_earth' | 'clay' | 'topsoil' | 'rock' | 'fill'
 export type MachineClass = '1.7t' | '5t' | '8t' | '13t' | '20t'
@@ -150,6 +155,10 @@ export interface Quantities {
   pierCount?: number // number of bored piers
   footingConcreteM3?: number // footing + pier concrete (subset of concreteVolumeM3)
   reoBarLm?: number // footing/pier reinforcing bar
+  // structural concreting (dollar-free physical quantities)
+  formworkM2?: number // structural formwork contact area (supply & fix)
+  reoTonnes?: number // engineered reinforcement by tonnage
+  steelFixHours?: number // steel-fixer labour to fix the reo cage
 }
 export interface RatedLine {
   item: string

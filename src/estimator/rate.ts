@@ -179,6 +179,17 @@ export function runRate(q: Quote, rate: RateService, bi: BusinessIntelligence): 
     lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Roadbase', qty: Q.subBaseTonnes, unit: 'tonne', trigger: `compacted sub-base ${Q.subBaseTonnes}t` })))
   }
 
+  // --- structural concreting base scope ---
+  if (Q.steelFixHours && bi.labour.length) {
+    lines.push(toLine(rate.resolve({ kind: 'labour', ref: 'Steel Fixer', qty: Q.steelFixHours, unit: 'hr', day, trigger: `fix ${Q.reoTonnes ?? ''}t reo cage` })))
+  }
+  if (Q.reoTonnes) {
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Structural Reo', qty: Q.reoTonnes, unit: 'tonne', trigger: `engineered reinforcement ${Q.reoTonnes}t` })))
+  }
+  if (Q.formworkM2) {
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Structural Formwork', qty: Q.formworkM2, unit: 'm2', trigger: `structural formwork ${Q.formworkM2}m²` })))
+  }
+
   const costTotal = round2(lines.reduce((s, l) => s + l.cost, 0))
   const chargeTotal = round2(lines.reduce((s, l) => s + l.charge, 0))
   q.rated = { lines, costTotal, chargeTotal }

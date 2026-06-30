@@ -57,6 +57,36 @@ export function concretingRawInput(over: Record<string, unknown> = {}): RawInput
   }
 }
 
+/** A high-confidence structural concreting raw input (engineer's details to hand). */
+export function structuralRawInput(over: Record<string, unknown> = {}): RawInput {
+  return {
+    userText: over.userText as string ?? 'Structural concrete',
+    answers: {
+      jobType: 'suspended_slab',
+      areaM2: 150,
+      thicknessMm: 200,
+      finish: 'trowel',
+      reinforcement: 'engineered',
+      access: 'pump',
+      propHeightM: 3,
+      engineerDetails: true,
+      requestedQuoteType: 'Fixed',
+      siteVisit: true,
+      groundConfirmed: true,
+      __sources: {
+        areaM2: { source: 'measured', confidence: 0.9 },
+        thicknessMm: { source: 'measured', confidence: 0.9 },
+        access: { source: 'measured', confidence: 0.9 },
+        finish: { source: 'stated', confidence: 0.85 },
+        reinforcement: { source: 'measured', confidence: 0.9 }, // off the engineer's drawings
+        propHeightM: { source: 'measured', confidence: 0.85 },
+        engineerDetails: { source: 'measured', confidence: 0.95 },
+      },
+      ...over,
+    },
+  }
+}
+
 export function runExample(contractorId = 'mtisa-earthworks') {
   const repo = new InMemoryBIRepository({ [BRISBANE_BI.contractorId]: BRISBANE_BI, [MT_ISA_BI.contractorId]: MT_ISA_BI })
   return estimateFor(padPrepRawInput(), contractorId, repo)

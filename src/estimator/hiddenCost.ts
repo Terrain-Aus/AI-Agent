@@ -4,7 +4,7 @@
 // are billing rules the Rate Engine already applies — they are NOT "hidden".
 
 import type { BusinessIntelligence, Quote, RatedLine } from './types'
-import { audit } from './types'
+import { audit, isStructural } from './types'
 import type { RateService } from './rate'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -61,7 +61,8 @@ export function runHiddenCost(q: Quote, rate: RateService, bi: BusinessIntellige
 
     // Pump needed when concrete can't be chuted/barrowed to the pour — priced
     // THROUGH the Rate service as a subbie (LAW 3), not a flat invented fee.
-    if (access === 'pump' || access === 'restricted') {
+    // (Structural elements always pump — handled in the structural block below.)
+    if (!isStructural(q.jobType) && (access === 'pump' || access === 'restricted')) {
       const pumpHours = Math.max(3, Math.ceil(vol / 25))
       addSubbie('Concrete Pump', pumpHours, 'hr', 'Concrete pump hire', `access=${access} → concrete pump`)
     }
@@ -85,6 +86,25 @@ export function runHiddenCost(q: Quote, rate: RateService, bi: BusinessIntellige
     if (q.jobType === 'crossover') {
       addFee(420, 'Council inspection & permit', 'crossover → council application/permit/inspection')
       if (q.inputs.trafficControl !== false) addLabour(3, 'Traffic control / spotter', 'crossover → traffic management in road reserve')
+    }
+
+    // --- structural elements: always pumped, certified, cured ---
+    if (isStructural(q.jobType)) {
+      // Boom-pump placement — priced THROUGH Rate as a subbie (LAW 3).
+      const pumpHours = Math.max(4, Math.ceil(vol / 20))
+      addSubbie('Concrete Pump', pumpHours, 'hr', 'Concrete boom pump', 'structural → boom-pump placement')
+      // Certifier / engineer reo inspection hold point before pour.
+      addFee(350, 'Engineering certification & reo inspection', 'structural → certifier inspection hold point')
+      // Curing of formed/finished faces (slabs & walls).
+      const curingArea = (q.inputs.__curingArea as number) ?? 0
+      if (curingArea > 0) addMaterial('Curing Compound', curingArea, 'm2', 'Curing compound', 'structural → curing')
+      // Suspended slabs: extended propping / back-prop hire for height.
+      if (q.jobType === 'suspended_slab' && (q.inputs.propHeightM as number) > 3) {
+        addFee(680, 'Extended propping / back-prop hire', 'suspended slab propHeight>3m → back-prop')
+      }
+      // Tall columns/walls: crane / hoisting for cages & formwork.
+      const tall = (q.jobType === 'columns' && (q.inputs.columnHeightM as number) > 3) || (q.jobType === 'structural_wall' && (q.inputs.wallHeightM as number) > 3)
+      if (tall) addFee(900, 'Crane / hoisting (cages & formwork)', 'structural >3m → crane/hoist')
     }
   }
 
