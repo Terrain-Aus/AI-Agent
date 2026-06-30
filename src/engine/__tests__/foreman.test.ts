@@ -194,4 +194,43 @@ describe('Foreman — behavioural guarantees', () => {
     expect(r.status).toBe('WARN')
     expect(r.canExport).toBe(true)
   })
+
+  it('tags every issue with an area', () => {
+    const s = spec({ area: 0, soil: 'unknown', location: '', pumpRequired: true })
+    const r = foremanReview({ spec: s, estimate: makeEstimate({ marginPct: 0, gst: 0 }) }, { businessConfigured: false })
+    expect(r.issues.length).toBeGreaterThan(0)
+    const areas = ['scope', 'labour', 'materials', 'plant', 'disposal', 'commercial']
+    for (const it of r.issues) expect(areas).toContain(it.area)
+  })
+})
+
+/* ── scope sanity ─────────────────────────────────────────────── */
+
+describe('Foreman — vague scope', () => {
+  it("warns when the job type is 'other'", () => {
+    const s = spec({ jobType: 'other', area: 40, soil: 'clay', location: 'Brisbane' })
+    const r = foremanReview({ spec: s, estimate: makeEstimate() }, CLEAN_CTX)
+    expect(r.issues.map((i) => i.id)).toContain('vague-scope')
+    expect(r.status).toBe('WARN')
+  })
+})
+
+/* ── integration with the real estimator ──────────────────────── */
+
+describe('Foreman — integration with the real estimator', () => {
+  it('a real estimated driveway is structurally complete (no missing-cost blockers)', () => {
+    const s = spec({ jobType: 'driveway', area: 60, thicknessMm: 125, soil: 'clay', location: 'Brisbane', prepRequired: true, boxingRequired: true })
+    const r = foremanReview({ spec: s, estimate: estimate(s) }, CLEAN_CTX)
+    // The estimator produces labour, materials (incl. concrete supply), machinery
+    // and disposal — so none of the "missing cost" blockers should fire.
+    const missingCost = ['no-labour', 'no-materials', 'concrete-no-supply', 'dig-no-plant', 'dig-no-disposal']
+    expect(r.blockers.map((b) => b.id).filter((c) => missingCost.includes(c))).toHaveLength(0)
+  })
+
+  it("the estimator's excavation-with-no-depth path leaves spoil uncosted → Foreman catches it", () => {
+    // jobType excavation with no dig depth: estimator adds a machine but no disposal.
+    const s = spec({ trade: 'earthworks', jobType: 'excavation', area: 200, thicknessMm: 0, excavationDepthMm: 0, prepRequired: false })
+    const r = foremanReview({ spec: s, estimate: estimate(s) }, CLEAN_CTX)
+    expect(r.issues.map((x) => x.id)).toContain('dig-no-disposal')
+  })
 })

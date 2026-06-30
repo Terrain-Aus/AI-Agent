@@ -226,11 +226,12 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
         )}
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => downloadDocument(quote, profile, 'quote')}
+            onClick={() => foreman.canExport && downloadDocument(quote, profile, 'quote')}
             disabled={!foreman.canExport}
+            title={foreman.canExport ? 'Export the client quote PDF' : 'Foreman blocked export — resolve the blockers first'}
             className="btn-primary flex-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <IconDownload size={15} /> Quote PDF
+            <IconDownload size={15} /> {foreman.canExport ? 'Quote PDF' : 'Export blocked'}
           </button>
           {(quote.status === 'won' || quote.status === 'invoiced') && (
             <button
