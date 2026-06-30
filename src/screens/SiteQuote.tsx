@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { estimate } from '../estimator'
+import { estimate, isStructural } from '../estimator'
 import { aud } from '../lib/format'
 import { Progress } from '../components/ui'
 import { IconArrow, IconBack, IconBrain, IconCheck, IconHard, IconWarning } from '../components/icons'
@@ -22,9 +22,15 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: 'review', label: 'Review' },
 ]
 
-const JOB_TYPES = ['pad_prep', 'site_cut', 'bulk_excavation', 'trenching', 'final_trim', 'spoil_removal']
+// Earthworks types use the cut/spoil walkthrough; structural concreting types
+// use the engineered-element walkthrough (reo by tonnage, formwork, certified).
+const EARTHWORKS_JOBS = ['pad_prep', 'site_cut', 'bulk_excavation', 'trenching', 'final_trim', 'spoil_removal']
+const STRUCTURAL_JOBS = ['suspended_slab', 'columns', 'beams', 'structural_wall']
+const JOB_TYPES = [...EARTHWORKS_JOBS, ...STRUCTURAL_JOBS]
 const MATERIALS = ['clay', 'common_earth', 'sand', 'gravel', 'topsoil', 'rock', 'fill']
 const ACCESS = ['open', 'chute', 'barrow', 'pump', 'restricted']
+const FINISHES = ['trowel', 'broom', 'float']
+const REINFORCEMENT = ['engineered', 'none']
 const QUOTE_TYPES = ['Fixed', 'Estimate', 'Indicative']
 
 const num = (v: unknown): number => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' && !isNaN(+v) ? +v : 0)
@@ -83,11 +89,19 @@ export default function SiteQuote() {
         </div>
 
         {step.key === 'site' ? (
-          <div className="grid grid-cols-3 gap-1.5">
-            <Kpi label="Bank m³" value={String(q.quantities.cutVolumeBankM3 ?? 0)} />
-            <Kpi label="Machine hrs" value={String(q.quantities.machineHours ?? 0)} />
-            <Kpi label="Loads" value={String(q.quantities.truckLoads ?? 0)} />
-          </div>
+          isStructural(q.jobType) ? (
+            <div className="grid grid-cols-3 gap-1.5">
+              <Kpi label="Concrete m³" value={String(q.quantities.concreteVolumeM3 ?? 0)} />
+              <Kpi label="Reo t" value={String(q.quantities.reoTonnes ?? 0)} />
+              <Kpi label="Formwork m²" value={String(q.quantities.formworkM2 ?? 0)} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              <Kpi label="Bank m³" value={String(q.quantities.cutVolumeBankM3 ?? 0)} />
+              <Kpi label="Machine hrs" value={String(q.quantities.machineHours ?? 0)} />
+              <Kpi label="Loads" value={String(q.quantities.truckLoads ?? 0)} />
+            </div>
+          )
         ) : (
           <div className="grid grid-cols-4 gap-1.5">
             <Kpi label="Cost" value={aud(sheet?.costTotal ?? 0)} />
@@ -152,13 +166,28 @@ function SiteStep({ a, set, q }: { a: Record<string, unknown>; set: (p: Record<s
   const jobType = str(a.jobType, 'pad_prep')
   const isTrench = jobType === 'trenching'
   const isSpoilOnly = jobType === 'spoil_removal'
+  const isStruct = isStructural(jobType)
+
+  // Switching to a structural element seeds the inputs the engine needs to
+  // produce reo & formwork immediately (engineered reo, pumped placement).
+  const onJobType = (val: string) => {
+    const patch: Record<string, unknown> = { jobType: val }
+    if (isStructural(val)) {
+      if (a.reinforcement == null) patch.reinforcement = 'engineered'
+      if (a.access == null) patch.access = 'pump'
+    }
+    set(patch)
+  }
+
+  if (isStruct) return <StructuralStep a={a} set={set} q={q} jobType={jobType} onJobType={onJobType} />
+
   return (
     <div className="space-y-3 animate-fade-up">
       <Intro icon={<IconHard size={18} className="text-sage-400" />} title="Walk the site" hint="Physical facts only — the engine turns these into quantities (no dollars here)." />
 
       <div className="card p-3.5">
         <div className="grid grid-cols-2 gap-2.5">
-          <Field label="Job type"><Select value={jobType} onChange={(val) => set({ jobType: val })} options={JOB_TYPES} /></Field>
+          <Field label="Job type"><Select value={jobType} onChange={onJobType} options={JOB_TYPES} /></Field>
           <Field label="Ground"><Select value={str(a.material, 'common_earth')} onChange={(val) => set({ material: val })} options={MATERIALS} /></Field>
 
           {isSpoilOnly ? (
@@ -194,6 +223,66 @@ function SiteStep({ a, set, q }: { a: Record<string, unknown>; set: (p: Record<s
       <div className="card-flat p-3 text-xs text-slate-400">
         Bank {q.quantities.cutVolumeBankM3 ?? 0}m³ → loose {q.quantities.spoilLooseM3 ?? 0}m³ → {q.quantities.truckLoads ?? 0} loads · dig {q.quantities.machineHours ?? 0}h
         {q.quantities.roadbaseTonnes ? ` · import ${q.quantities.roadbaseTonnes}t roadbase` : ''}
+      </div>
+    </div>
+  )
+}
+
+/* ───────────── Step 1 (structural concreting) ───────────── */
+function StructuralStep({ a, set, q, jobType, onJobType }: { a: Record<string, unknown>; set: (p: Record<string, unknown>) => void; q: EQuote; jobType: string; onJobType: (v: string) => void }) {
+  const Q = q.quantities
+  return (
+    <div className="space-y-3 animate-fade-up">
+      <Intro icon={<IconHard size={18} className="text-sage-400" />} title="Structural element" hint="Engineered concrete — the engine sizes concrete, reo (by tonnage) and formwork. Always boom-pumped & certified." />
+
+      <div className="card p-3.5">
+        <div className="grid grid-cols-2 gap-2.5">
+          <Field label="Job type"><Select value={jobType} onChange={onJobType} options={JOB_TYPES} /></Field>
+          <Field label="Access"><Select value={str(a.access, 'pump')} onChange={(val) => set({ access: val })} options={ACCESS} /></Field>
+
+          {jobType === 'suspended_slab' && (
+            <>
+              <Field label="Area (m²)"><NumBox value={num(a.areaM2)} onChange={(n) => set({ areaM2: n })} /></Field>
+              <Field label="Thickness (mm)"><NumBox value={num(a.thicknessMm)} onChange={(n) => set({ thicknessMm: n })} /></Field>
+              <Field label="Prop height (m)"><NumBox value={num(a.propHeightM)} onChange={(n) => set({ propHeightM: n })} /></Field>
+              <Field label="Finish"><Select value={str(a.finish, 'trowel')} onChange={(val) => set({ finish: val })} options={FINISHES} /></Field>
+            </>
+          )}
+          {jobType === 'columns' && (
+            <>
+              <Field label="Columns (count)"><NumBox value={num(a.columnCount)} onChange={(n) => set({ columnCount: n })} /></Field>
+              <Field label="Height (m)"><NumBox value={num(a.columnHeightM)} onChange={(n) => set({ columnHeightM: n })} /></Field>
+              <Field label="Width (mm)"><NumBox value={num(a.columnWidthMm)} onChange={(n) => set({ columnWidthMm: n })} /></Field>
+              <Field label="Depth (mm)"><NumBox value={num(a.columnDepthMm)} onChange={(n) => set({ columnDepthMm: n })} /></Field>
+            </>
+          )}
+          {jobType === 'beams' && (
+            <>
+              <Field label="Length (m)"><NumBox value={num(a.beamLengthM)} onChange={(n) => set({ beamLengthM: n })} /></Field>
+              <Field label="Width (mm)"><NumBox value={num(a.beamWidthMm)} onChange={(n) => set({ beamWidthMm: n })} /></Field>
+              <Field label="Depth (mm)"><NumBox value={num(a.beamDepthMm)} onChange={(n) => set({ beamDepthMm: n })} /></Field>
+            </>
+          )}
+          {jobType === 'structural_wall' && (
+            <>
+              <Field label="Length (m)"><NumBox value={num(a.wallLengthM)} onChange={(n) => set({ wallLengthM: n })} /></Field>
+              <Field label="Height (m)"><NumBox value={num(a.wallHeightM)} onChange={(n) => set({ wallHeightM: n })} /></Field>
+              <Field label="Thickness (mm)"><NumBox value={num(a.wallThicknessMm)} onChange={(n) => set({ wallThicknessMm: n })} /></Field>
+            </>
+          )}
+
+          <Field label="Reinforcement"><Select value={str(a.reinforcement, 'engineered')} onChange={(val) => set({ reinforcement: val })} options={REINFORCEMENT} /></Field>
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <Toggle on={bool(a.engineerDetails)} onClick={() => set({ engineerDetails: !bool(a.engineerDetails) })} label="Engineer details known" />
+          <Toggle on={a.reoInspection !== false} onClick={() => set({ reoInspection: a.reoInspection === false })} label="Reo inspection required" />
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">Boom pump, engineering certification & curing are added automatically for structural pours.</p>
+      </div>
+
+      <div className="card-flat p-3 text-xs text-slate-400">
+        {Q.concreteVolumeM3 ?? 0}m³ {str(a.reinforcement, 'engineered') === 'none' ? '(unreinforced)' : `· ${Q.reoTonnes ?? 0}t reo`} · {Q.formworkM2 ?? 0}m² formwork · fix {Q.steelFixHours ?? 0}h · place {Q.placeFinishHours ?? 0}h
       </div>
     </div>
   )
