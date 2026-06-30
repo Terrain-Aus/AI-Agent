@@ -147,8 +147,36 @@ export function runRate(q: Quote, rate: RateService, bi: BusinessIntelligence): 
   if (Q.truckLoads) {
     lines.push(toLine(rate.resolve({ kind: 'subbie', ref: 'Cartage', qty: Q.truckLoads, unit: 'load', trigger: `cart ${Q.spoilLooseM3 ?? ''}m³ loose spoil` })))
   }
+  // --- concreting base scope ---
+  if (Q.placeFinishHours && bi.labour.length) {
+    lines.push(
+      toLine(
+        rate.resolve({
+          kind: 'labour',
+          ref: 'Concreter',
+          qty: Q.placeFinishHours,
+          unit: 'hr',
+          day,
+          trigger: `place & finish ${Q.areaM2 ?? Q.concreteVolumeM3 ?? ''}${Q.areaM2 ? 'm²' : 'm³'} (incl form ${Q.formworkLm ?? 0}lm, saw ${Q.sawCutLm ?? 0}lm)`,
+        }),
+      ),
+    )
+  }
   if (Q.concreteVolumeM3) {
-    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Concrete', qty: Q.concreteVolumeM3, unit: 'm3', trigger: 'supply concrete' })))
+    const grade = (q.inputs.__concreteGrade as string) ?? 'Concrete N25'
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: grade, qty: Q.concreteVolumeM3, unit: 'm3', trigger: `supply ${grade} ${Q.concreteVolumeM3}m³` })))
+  }
+  if (Q.meshSheets) {
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Reo Mesh', qty: Q.meshSheets, unit: 'each', trigger: `reinforcing mesh ${Q.meshSheets} sheets` })))
+  }
+  if (Q.reoBarLm) {
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Reo Bar', qty: Q.reoBarLm, unit: 'm', trigger: `footing/pier reinforcement ${Q.reoBarLm}lm` })))
+  }
+  if (Q.formworkLm) {
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Edge Formwork', qty: Q.formworkLm, unit: 'm', trigger: `edge formwork ${Q.formworkLm}lm` })))
+  }
+  if (Q.subBaseTonnes) {
+    lines.push(toLine(rate.resolve({ kind: 'material', ref: 'Roadbase', qty: Q.subBaseTonnes, unit: 'tonne', trigger: `compacted sub-base ${Q.subBaseTonnes}t` })))
   }
 
   const costTotal = round2(lines.reduce((s, l) => s + l.cost, 0))

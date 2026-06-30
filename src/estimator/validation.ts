@@ -39,6 +39,23 @@ export function runValidation(q: Quote, policy: PricingPolicy): Quote {
     findings.push({ severity: 'warn', check: 'importMissing', detail: 'Job requires imported material but no import quantity was computed.' })
   }
 
+  /* ── CONCRETING COMPLETENESS ── */
+  if (q.trade === 'concreting') {
+    const finish = String(q.inputs.finish ?? '')
+    if (q.jobType === 'crossover') {
+      if (q.inputs.councilApproval !== true) {
+        findings.push({ severity: 'warn', check: 'councilApproval', detail: 'Council crossover: approval/permit not confirmed — council application & inspection required before the pour.' })
+      }
+      if (q.inputs.trafficControl !== true) {
+        findings.push({ severity: 'warn', check: 'trafficControl', detail: 'Traffic management/spotter likely required for works in the road reserve — not yet confirmed.' })
+      }
+      findings.push({ severity: 'warn', check: 'roadAccess', detail: 'Crossover ties into the existing road level and access — survey levels before pour.' })
+    }
+    if ((q.jobType === 'exposed_aggregate_driveway' || /exposed/i.test(finish)) && q.inputs.finishSampleApproved !== true) {
+      findings.push({ severity: 'warn', check: 'finishSample', detail: 'Exposed-aggregate finish not signed off against a sample — colour/exposure variance risk.' })
+    }
+  }
+
   /* ── POLICY GATES ── */
   const c = q.commercial
   if (c) {

@@ -44,6 +44,29 @@ export function runRisk(q: Quote, allowFixedPriceBelowConfidence: number): Quote
     confidence -= 0.05 * Math.min(3, q.missingInputs.length)
   }
 
+  // --- concreting-specific risk ---
+  if (q.trade === 'concreting') {
+    const finish = String(q.inputs.finish ?? '')
+    if (q.jobType === 'exposed_aggregate_driveway' || /exposed/i.test(finish)) {
+      flags.push('Exposed aggregate finish — wash-off, weather & batch-colour risk')
+      variationTriggers.push('Aggregate exposure/colour variance or weather delay → re-finish')
+      if (q.inputs.finishSampleApproved !== true) {
+        confidence -= 0.05
+        assumptions.push('Exposed-aggregate finish to be confirmed against an approved sample')
+      }
+    }
+    if (q.jobType === 'crossover') {
+      flags.push('Council crossover — inspection, permit & traffic management required')
+      variationTriggers.push('Council rejection or road-level change at tie-in → re-pour/variation')
+      assumptions.push('Council crossover permit & inspection arranged separately unless stated')
+      if (q.inputs.councilApproval !== true) confidence -= 0.05
+    }
+    if (q.jobType === 'footings_piers') {
+      flags.push('Footing/pier depth subject to engineer & founding material')
+      variationTriggers.push('Rock or unstable ground in footings → depth/volume increase')
+    }
+  }
+
   confidence = clamp01(round2(confidence))
   const tier: ConfidenceTier = confidence >= 0.85 ? 'high' : confidence >= 0.6 ? 'medium' : 'low'
   const contingencyPct = tier === 'high' ? 0.05 : tier === 'medium' ? 0.1 : 0.18

@@ -48,7 +48,7 @@ export interface MaterialRate {
   name: string
   supplier?: string
   rate: number // single rate = COST; markup applied by Commercial
-  unit: 'm3' | 'tonne' | 'm2' | 'each' | 'bag'
+  unit: 'm3' | 'tonne' | 'm2' | 'm' | 'each' | 'bag'
   wastePct?: number
   compactionAllowance?: number
   minimumOrder?: number
@@ -142,6 +142,14 @@ export interface Quantities {
   concreteVolumeM3?: number
   meshSheets?: number
   areaM2?: number
+  // concreting (dollar-free physical quantities)
+  placeFinishHours?: number // concreter on-site labour (place, finish, form, saw)
+  formworkLm?: number // linear metres of edge formwork
+  sawCutLm?: number // linear metres of control-joint saw cutting
+  subBaseTonnes?: number // compacted granular sub-base under the slab
+  pierCount?: number // number of bored piers
+  footingConcreteM3?: number // footing + pier concrete (subset of concreteVolumeM3)
+  reoBarLm?: number // footing/pier reinforcing bar
 }
 export interface RatedLine {
   item: string

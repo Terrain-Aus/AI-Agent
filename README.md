@@ -118,9 +118,31 @@ import { runExample, printExample } from './src/estimator'
 printExample('mtisa-earthworks')   // client quote + internal sheet + validation + audit
 ```
 
+**Trades & job types.** Earthworks (`pad_prep`, `site_cut`, `trenching`,
+`bulk_excavation`, `final_trim`, `spoil_removal`, `retaining_wall_excavation`)
+and concreting. The six concreting job types each activate their own inputs,
+quantity calcs, materials and hidden-cost triggers — all still flowing through
+the same engine and the same 7 LAWS:
+
+| Job type | Drives | Hidden-cost / risk triggers |
+| --- | --- | --- |
+| `slab` (plain concrete slab) | area×thickness → N25, mesh, form, saw, sub-base | pump if access can't chute; sub-base lay & compact |
+| `exposed_aggregate_driveway` | N32, slower finish, deeper sub-base | sealing return visit, sealer, washout/slurry; finish/weather risk flag |
+| `footings_piers` | footing + bored-pier volume, reo **bar** (not mesh) | depth-subject-to-engineer risk; rock-in-footings variation |
+| `shed_slab` | N25 + thickened edge beam concrete | sub-base lay & compact |
+| `crossover` (council driveway) | N32, 150 mm sub-base | council/permit/traffic/access **validation warnings**, council inspection fee, traffic spotter |
+| `paths_flatwork` | N25, more frequent joints | — |
+
+The concrete **pump** is priced through the Rate service as a subbie (LAW 3 —
+never an invented flat fee). Concreting tests live in
+`src/estimator/__tests__/concreting.test.ts` (different job types → different
+quantities & hidden costs; exposed-agg → sealing/washout/finish risk; crossover
+→ council/permit/traffic/access warnings; low ground/access confidence still
+BLOCKs; swap BI → dollars change, quantities don't).
+
 BusinessIntelligence lives behind `BIRepository` (in-memory stub provided;
 swap for Postgres/Supabase with no engine change). `npm test` runs the law +
-acceptance suite (swap BI → every dollar changes; bank/loose enforced).
+acceptance + concreting suites (swap BI → every dollar changes; bank/loose enforced).
 
 The working **Detailed site quote** UI (`/site/:id`, `src/screens/SiteQuote.tsx`)
 runs entirely through this engine: it captures the `RawInput` answers, calls

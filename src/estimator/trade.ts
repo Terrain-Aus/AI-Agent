@@ -21,9 +21,16 @@ const JOB_TYPES: Record<string, JobTypeDef> = {
   final_trim: { trade: 'earthworks', required: ['areaM2', 'gradeToleranceMm'], derived: { precisionJob: true } },
   spoil_removal: { trade: 'earthworks', required: ['spoilLooseM3'], derived: { producesSpoil: true } },
   retaining_wall_excavation: { trade: 'earthworks', required: ['lengthM', 'depthMm', 'material'], derived: { producesSpoil: true, servicesCritical: true } },
-  // concreting (pluggable extension point — quantities handled by jobType map)
-  house_slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access'], derived: {} },
-  driveway: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase'], derived: {} },
+  // concreting — six job types. Each activates only the inputs it needs.
+  slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase'], derived: {} },
+  exposed_aggregate_driveway: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase', 'finishSampleApproved'], derived: { requiresImport: true } },
+  footings_piers: { trade: 'concreting', required: ['footingLengthM', 'footingWidthMm', 'footingDepthMm', 'pierCount', 'pierDiameterMm', 'pierDepthMm', 'reinforcement', 'access'], derived: { producesSpoil: true } },
+  shed_slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase', 'thickenedEdge'], derived: { requiresImport: true } },
+  crossover: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase', 'councilApproval', 'trafficControl'], derived: { requiresImport: true } },
+  paths_flatwork: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access'], derived: {} },
+  // legacy aliases (kept so existing inputs/UI keep resolving)
+  house_slab: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase'], derived: {} },
+  driveway: { trade: 'concreting', required: ['areaM2', 'thicknessMm', 'finish', 'reinforcement', 'access', 'subBase'], derived: { requiresImport: true } },
 }
 
 function classify(text: string): string {
