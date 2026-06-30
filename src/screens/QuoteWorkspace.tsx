@@ -9,7 +9,7 @@ import { useStore } from '../store/useStore'
 import { estimate } from '../engine/estimator'
 import { riskSummary } from '../engine/hiddenCosts'
 import { commercialReview, VERDICT_LABEL, type Verdict } from '../engine/review'
-import { foremanReview, FOREMAN_LABEL, type ForemanReview, type ForemanStatus } from '../engine/foreman'
+import { foremanReview } from '../engine/foreman'
 import { JOB_TYPE_LABELS, FINISH_LABELS, SOIL_LABELS, LOCATIONS } from '../engine/pricing'
 import { TRADE_LABELS } from '../engine/apprentice'
 import { aud, pct } from '../lib/format'
@@ -22,11 +22,11 @@ import {
   IconCheck,
   IconDoc,
   IconDownload,
-  IconHard,
   IconWarning,
 } from '../components/icons'
 import ApprenticeDrawer from '../components/ApprenticeDrawer'
 import JobDebriefSheet from '../components/JobDebriefSheet'
+import ForemanPanel from '../components/ForemanPanel'
 import type { Access, CostCategory, Finish, HiddenCost, JobType, SoilType, Trade } from '../engine/types'
 
 type Tab = 'summary' | 'breakdown' | 'risks' | 'details'
@@ -171,17 +171,16 @@ function NotPriced({ onAsk }: { onAsk: () => void }) {
 function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
   const quote = useStore((s) => s.getQuote(id))!
   const profile = useStore((s) => s.profile)
+  const businessConfigured = useStore((s) => s.business.configured)
   const [showSummary, setShowSummary] = useState(false)
   const [debrief, setDebrief] = useState(false)
   const est = quote.estimate!
   const review = commercialReview(quote.spec, est)
-  const foreman = foremanReview(quote.spec, est)
+  // Foreman's pre-export review — the last set of eyes before the quote leaves.
+  const foreman = foremanReview(quote, { businessConfigured })
 
   return (
     <div className="space-y-3 animate-fade-up">
-      {/* Foreman — the go/no-go review gate before export */}
-      <ForemanCard r={foreman} />
-
       {/* Signature moment — the apprentice's commercial review */}
       <CommercialReviewCard id={id} onRisks={onRisks} />
 
@@ -212,24 +211,27 @@ function SummaryTab({ id, onRisks }: { id: string; onRisks: () => void }) {
         {showSummary && <p className="border-t border-ink-400 px-3.5 py-3 text-sm leading-relaxed text-slate-300 animate-fade-up">{est.summary}</p>}
       </div>
 
+      {/* Foreman review — final gate before the quote leaves the door */}
+      <ForemanPanel report={foreman} />
+
       {/* Outcome + export — compact */}
       <div className="card p-3.5">
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Outcome · feeds learning</div>
         <Outcome id={id} />
-        {!foreman.exportAllowed && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
-            <IconWarning size={14} className="mt-px shrink-0" />
-            <span>Foreman blocked export — fix {foreman.blockers.length} blocker{foreman.blockers.length === 1 ? '' : 's'} above before sending this to the client.</span>
+        {!foreman.canExport && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            <IconWarning size={14} className="mt-0.5 shrink-0" />
+            <span>Foreman's holding export — {foreman.blockers.length} blocker{foreman.blockers.length === 1 ? '' : 's'} to clear first. Fix the items above, then re-price.</span>
           </div>
         )}
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => foreman.exportAllowed && downloadDocument(quote, profile, 'quote')}
-            disabled={!foreman.exportAllowed}
-            title={foreman.exportAllowed ? 'Export the client quote PDF' : 'Foreman blocked export — resolve the blockers first'}
-            className="btn-primary flex-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => foreman.canExport && downloadDocument(quote, profile, 'quote')}
+            disabled={!foreman.canExport}
+            title={foreman.canExport ? 'Export the client quote PDF' : 'Foreman blocked export — resolve the blockers first'}
+            className="btn-primary flex-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <IconDownload size={15} /> {foreman.exportAllowed ? 'Quote PDF' : 'Export blocked'}
+            <IconDownload size={15} /> {foreman.canExport ? 'Quote PDF' : 'Export blocked'}
           </button>
           {(quote.status === 'won' || quote.status === 'invoiced') && (
             <button
@@ -297,61 +299,6 @@ function DebriefCard({ id, onEdit }: { id: string; onEdit: () => void }) {
         {hit > 0 ? `${hit} of the flagged costs actually hit.` : 'None of the flagged costs landed.'}
         {a.surpriseCost > 0 && ` Surprise: ${aud(a.surpriseCost)}${a.surpriseNote ? ` (${a.surpriseNote})` : ''}.`}
       </p>
-    </div>
-  )
-}
-
-/* ----- Foreman: the quote-review gate before export ----- */
-const FOREMAN_STYLE: Record<ForemanStatus, { border: string; badge: string; bar: string; icon: string }> = {
-  BLOCK: { border: 'border-danger/50', badge: 'bg-danger/15 text-danger border-danger/40', bar: 'bg-danger', icon: 'text-danger' },
-  WARN: { border: 'border-amber/45', badge: 'bg-amber/15 text-amber border-amber/40', bar: 'bg-amber', icon: 'text-amber' },
-  READY: { border: 'border-sage-500/40', badge: 'bg-sage-500/15 text-sage-400 border-sage-500/40', bar: 'bg-sage-500', icon: 'text-sage-400' },
-}
-
-function ForemanCard({ r }: { r: ForemanReview }) {
-  const s = FOREMAN_STYLE[r.status]
-  const [open, setOpen] = useState<number | null>(r.status === 'BLOCK' ? 0 : null)
-  return (
-    <div className={`overflow-hidden rounded-2xl border ${s.border} bg-ink-600 shadow-card`}>
-      <div className={`h-1 w-full ${s.bar}`} />
-      <div className="p-4">
-        <div className="mb-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-            <IconHard size={13} className={s.icon} /> Foreman · quote review
-          </div>
-          <span className={`pill border ${s.badge}`}>
-            {r.status === 'BLOCK' ? <IconWarning size={11} /> : r.status === 'READY' ? <IconCheck size={11} /> : null}
-            {FOREMAN_LABEL[r.status]}
-          </span>
-        </div>
-
-        <p className="mb-3 text-sm font-medium leading-relaxed text-slate-100">{r.summary}</p>
-
-        {r.findings.length > 0 ? (
-          <div className="space-y-1">
-            {r.findings.map((fnd, i) => (
-              <div key={fnd.code} className="overflow-hidden rounded-lg border border-ink-400 bg-ink-700">
-                <button onClick={() => setOpen(open === i ? null : i)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${fnd.severity === 'block' ? 'bg-danger' : 'bg-amber'}`} />
-                  <span className="flex-1 truncate text-sm text-slate-200">{fnd.title}</span>
-                  <span className={`pill border text-[9px] ${fnd.severity === 'block' ? 'border-danger/40 bg-danger/15 text-danger' : 'border-amber/40 bg-amber/15 text-amber'}`}>{fnd.severity}</span>
-                  <span className={`shrink-0 text-slate-600 transition ${open === i ? 'rotate-90' : ''}`}>›</span>
-                </button>
-                {open === i && <p className="border-t border-ink-400 px-3 py-2 text-xs leading-relaxed text-slate-400 animate-fade-up">{fnd.detail}</p>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-xl border border-sage-500/30 bg-sage-500/[0.06] px-3.5 py-2.5 text-sm text-slate-200">
-            <IconCheck size={16} className="text-sage-400" /> Complete and costed — nothing to fix before export.
-          </div>
-        )}
-
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-ink-400 bg-ink-700 px-3.5 py-2.5">
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Next</span>
-          <span className="text-xs font-medium text-slate-200">{r.nextAction}</span>
-        </div>
-      </div>
     </div>
   )
 }
