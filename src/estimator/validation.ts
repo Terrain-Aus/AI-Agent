@@ -58,7 +58,10 @@ export function runValidation(q: Quote, policy: PricingPolicy): Quote {
       if (q.inputs.engineerDetails !== true) {
         findings.push({ severity: 'warn', check: 'engineerDetails', detail: "Structural element: engineer's drawings/specification not confirmed — reo, grade and cover must come from the engineer before pricing is firm." })
       }
-      findings.push({ severity: 'warn', check: 'reoInspection', detail: 'Reo inspection hold point: certifier must inspect & approve the reinforcement before the pour can proceed.' })
+      // Hold point applies unless the contractor explicitly marks inspection not required.
+      if (q.inputs.reoInspection !== false) {
+        findings.push({ severity: 'warn', check: 'reoInspection', detail: 'Reo inspection hold point: certifier must inspect & approve the reinforcement before the pour can proceed.' })
+      }
     }
   }
 
