@@ -1,6 +1,7 @@
 // Public surface of the TerrainPro Apprentice guardian service — M1 (types &
 // contracts) + M2A (additive optional structured input: reviewItems, siteConditions)
-// + M2B-1 (deterministic hard-floor rules: HF-SPOIL, HF-SERVICES).
+// + M2B-1 (deterministic hard-floor rules: HF-SPOIL, HF-SERVICES)
+// + M2B-2 (advisory site-risk rules: RK-ACCESS, RK-TRAFFIC, RK-WATER).
 //
 // Everything exported here is a type, a contract, a runtime guard, a pure factory,
 // a pure opaque constructor/accessor, or a pure deterministic rule. No routes, no

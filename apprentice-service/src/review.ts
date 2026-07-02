@@ -1,9 +1,10 @@
 // The review contract — and, as of M2B-1, its deterministic implementation.
 //
-// M1 shipped the TYPE only. M2B-1 adds `deterministicReview`: a ReviewFn that
-// runs the deterministic hard-floor rule registry (src/rules/) and nothing
-// else — no LLM, no network, no persistence, no learning delta. A review reads
-// a request, the operator's learning profile and the hard-floor config, and
+// M1 shipped the TYPE only. M2B-1 added `deterministicReview`: a ReviewFn that
+// runs the deterministic rule registry (src/rules/) and nothing else — no LLM,
+// no network, no persistence, no learning delta. M2B-2 extends that registry
+// with advisory site-risk rules; the wiring here is unchanged. A review reads a
+// request, the operator's learning profile and the hard-floor config, and
 // returns advisory flags plus an append-only learning delta. Nothing else.
 
 import type { DeepReadonly } from './branded'

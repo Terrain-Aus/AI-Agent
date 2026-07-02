@@ -10,7 +10,7 @@ import { deterministicReview } from '../review'
 import type { ReviewItem, ReviewItemKind } from '../review-items'
 import type { QuoteReviewRequestShape } from '../review-request'
 import type { SiteConditions } from '../site-conditions'
-import { DETERMINISTIC_RULES, runDeterministicRules, hfServices, hfSpoil } from '../rules'
+import { DETERMINISTIC_RULES, runDeterministicRules, hfServices, hfSpoil, rkAccess, rkTraffic, rkWater } from '../rules'
 
 const item = (kind: ReviewItemKind): ReviewItem => ({ kind })
 
@@ -29,17 +29,40 @@ const request = (reviewItems?: ReviewItem[], siteConditions?: SiteConditions): Q
 const profile = (): LearningProfile => ({ operatorId: operatorId('op_test'), profileVersion: 1, events: [] })
 
 describe('deterministic rule registry', () => {
-  it('registers exactly HF-SPOIL then HF-SERVICES, in that order', () => {
-    expect(DETERMINISTIC_RULES).toHaveLength(2)
+  it('registers the hard-floor then advisory rules, in that exact order', () => {
+    expect(DETERMINISTIC_RULES).toHaveLength(5)
     expect(DETERMINISTIC_RULES[0]).toBe(hfSpoil)
     expect(DETERMINISTIC_RULES[1]).toBe(hfServices)
+    expect(DETERMINISTIC_RULES[2]).toBe(rkAccess)
+    expect(DETERMINISTIC_RULES[3]).toBe(rkTraffic)
+    expect(DETERMINISTIC_RULES[4]).toBe(rkWater)
   })
 
-  it('returns two flags in registry order when one input triggers both rules', () => {
+  it('returns two flags in registry order when one input triggers both hard-floor rules', () => {
     // A bare excavation item: spoil unconfirmed AND BYDA/service-location unconfirmed.
     const flags = runDeterministicRules(request([item('excavation')]), DEFAULT_HARD_FLOOR_CONFIG)
     expect(flags.map((f) => f.code)).toEqual(['HF-SPOIL', 'HF-SERVICES'])
     for (const flag of flags) expect(isRemediationFlag(flag)).toBe(true)
+  })
+
+  it('emits hard-floor flags before advisory site-risk flags, in registry order', () => {
+    // Excavation with no allowances triggers both HF rules; a fully-asserted
+    // site-conditions block triggers all three RK rules.
+    const flags = runDeterministicRules(
+      request([item('excavation')], { access: 'restricted', roadReserveAdjacent: true, wetConditions: true }),
+      DEFAULT_HARD_FLOOR_CONFIG,
+    )
+    expect(flags.map((f) => f.code)).toEqual(['HF-SPOIL', 'HF-SERVICES', 'RK-ACCESS', 'RK-TRAFFIC', 'RK-WATER'])
+    for (const flag of flags) expect(isRemediationFlag(flag)).toBe(true)
+  })
+
+  it('runs advisory rules independently of excavation (no reviewItems)', () => {
+    // RK rules read siteConditions only — they are not gated on an excavation item.
+    const flags = runDeterministicRules(
+      request(undefined, { access: 'restricted', roadReserveAdjacent: true, wetConditions: true }),
+      DEFAULT_HARD_FLOOR_CONFIG,
+    )
+    expect(flags.map((f) => f.code)).toEqual(['RK-ACCESS', 'RK-TRAFFIC', 'RK-WATER'])
   })
 
   it('returns [] for empty or undefined structured inputs', () => {
