@@ -1,56 +1,51 @@
-// Input contract for the Apprentice guardian.
-//
-// This is a DECOUPLED snapshot. The host application maps its own quote /
-// validation objects into this DTO at the call site (in a later milestone's
-// transport layer). The guardian imports NOTHING from the app — so it stays
-// isolated and portable to Cloud Run. No app enums, no pipeline internals.
+// The read-only input contract handed to the guardian, AFTER Validation and
+// BEFORE send/export. Decoupled from the host app: no app enums, no pipeline types.
+// `reviewContractVersion` pins the shape so producers and the guardian agree.
 
-/** Overall outcome of the Validation Engine that ran before the guardian. */
+import type { DeepReadonly, OperatorId, ReviewedAmount } from './branded'
+
 export const VALIDATION_STATUSES = ['PASS', 'WARN', 'BLOCK'] as const
 export type ValidationStatus = (typeof VALIDATION_STATUSES)[number]
 
-/** A single upstream Validation Engine finding, mirrored into the guardian's own shape. */
+/** A single upstream Validation Engine finding, mirrored into the guardian's shape. */
 export interface ValidationFindingInput {
   severity: 'info' | 'warn' | 'block'
   code: string
   detail: string
 }
 
-/** Decoupled result of the Validation Engine, handed to the guardian as context. */
-export interface ValidationSummaryInput {
+/** Decoupled result of the Validation Engine that ran before the guardian. */
+export interface ValidationSummary {
   status: ValidationStatus
-  findings: ValidationFindingInput[]
+  findings: ReadonlyArray<ValidationFindingInput>
+}
+
+/** Reviewed monetary figures. Opaque amounts — read via amountValue(). */
+export interface QuoteTotals {
+  subtotalExGst: ReviewedAmount
+  gst: ReviewedAmount
+  total: ReviewedAmount
+  marginPct: number
 }
 
 /** A minimal, read-only snapshot of the quote the guardian may reason over. */
-export interface QuoteSnapshotInput {
+export interface QuoteSnapshot {
   quoteId: string
-  /** Free-form trade / job descriptors — plain strings, not app enums. */
   trade?: string
   jobType?: string
-  /** Headline commercial figures, if available. All optional and read-only. */
-  totals?: {
-    subtotalExGst?: number
-    gst?: number
-    total?: number
-    marginPct?: number
-  }
-  /** Optional scope text for context. */
+  totals?: QuoteTotals
   scopeNote?: string
 }
 
-/**
- * The full request handed to the guardian, AFTER Validation and BEFORE send/export.
- */
-export interface GuardianReviewRequest {
-  /** Correlates the review with the quote. Opaque id. */
+/** The un-frozen shape; the exported contract is its DeepReadonly form. */
+export interface QuoteReviewRequestShape {
+  /** Pins the contract version. M1 is version 1. */
+  reviewContractVersion: 1
   quoteId: string
-  quote: QuoteSnapshotInput
-  validation: ValidationSummaryInput
-  /**
-   * Optional pointer to a persisted learning profile (a Firestore document id in a
-   * later milestone). M1 carries the field for contract-completeness ONLY — there
-   * is no Firestore client and no persistence in this package.
-   */
-  learningProfileId?: string
+  operatorId: OperatorId
+  quote: QuoteSnapshot
+  validation: ValidationSummary
 }
+
+/** The review request contract — deeply read-only. */
+export type QuoteReviewRequest = DeepReadonly<QuoteReviewRequestShape>

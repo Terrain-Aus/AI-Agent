@@ -1,69 +1,79 @@
 import { describe, it, expect } from 'vitest'
 import {
   REMEDIATION_SEVERITIES,
-  REMEDIATION_CATEGORIES,
-  type RemediationFlag,
+  REMEDIATION_SOURCES,
+  createRemediationFlag,
+  type RemediationFlagInput,
 } from '../remediation-flag'
 import { isRemediationFlag } from '../guards'
+import { DEFAULT_HARD_FLOOR_CONFIG, createHardFloorConfig } from '../hard-floor'
 
-const validFlag = (over: Partial<RemediationFlag> = {}): RemediationFlag => ({
-  code: 'missing-scope-note',
-  severity: 'advisory',
-  category: 'completeness',
-  title: 'No scope note',
-  detail: 'This quote has no written scope — disputes start here.',
-  source: 'apprentice',
+const input = (over: Partial<RemediationFlagInput> = {}): RemediationFlagInput => ({
+  code: 'spoil-uncosted',
+  category: 'spoilDisposal',
+  severity: 'critical',
+  title: 'Spoil disposal not costed',
+  detail: 'The dig produces spoil but nothing carts or tips it.',
   ...over,
 })
 
-describe('RemediationFlag — contract shape', () => {
-  it('accepts a minimal valid flag', () => {
-    expect(isRemediationFlag(validFlag())).toBe(true)
+describe('severities & sources', () => {
+  it('severity is exactly info | warning | critical', () => {
+    expect([...REMEDIATION_SEVERITIES]).toEqual(['info', 'warning', 'critical'])
+  })
+  it('source is exactly universal | learned | hardFloor', () => {
+    expect([...REMEDIATION_SOURCES]).toEqual(['universal', 'learned', 'hardFloor'])
+  })
+})
+
+describe('createRemediationFlag — hard-floor enforcement', () => {
+  it('forces dismissible:false and source:hardFloor for a hard-floor category, overriding the input', () => {
+    const flag = createRemediationFlag(
+      input({ category: 'spoilDisposal', dismissible: true, source: 'learned' }),
+      DEFAULT_HARD_FLOOR_CONFIG,
+    )
+    expect(flag.dismissible).toBe(false)
+    expect(flag.source).toBe('hardFloor')
+    expect(isRemediationFlag(flag)).toBe(true)
   })
 
-  it('accepts every declared severity and category', () => {
-    for (const severity of REMEDIATION_SEVERITIES) {
-      expect(isRemediationFlag(validFlag({ severity }))).toBe(true)
-    }
-    for (const category of REMEDIATION_CATEGORIES) {
-      expect(isRemediationFlag(validFlag({ category }))).toBe(true)
-    }
+  it('applies the hard floor to serviceProtection too (the other default)', () => {
+    const flag = createRemediationFlag(input({ category: 'serviceProtection' }), DEFAULT_HARD_FLOOR_CONFIG)
+    expect(flag.source).toBe('hardFloor')
+    expect(flag.dismissible).toBe(false)
   })
 
-  it('accepts optional fields when present and well-formed', () => {
-    expect(
-      isRemediationFlag(
-        validFlag({
-          suggestedAction: 'Add a scope note.',
-          rationale: 'Scope disputes are the top source of write-offs.',
-          target: { kind: 'quote', id: 'q_123' },
-          confidence: 0.82,
-        }),
-      ),
-    ).toBe(true)
+  it('leaves a non-hard-floor category dismissible with its own source (default universal)', () => {
+    const a = createRemediationFlag(input({ category: 'siteAccess' }), DEFAULT_HARD_FLOOR_CONFIG)
+    expect(a.dismissible).toBe(true)
+    expect(a.source).toBe('universal')
+    const b = createRemediationFlag(input({ category: 'siteAccess', source: 'learned', dismissible: false }), DEFAULT_HARD_FLOOR_CONFIG)
+    expect(b.source).toBe('learned')
+    expect(b.dismissible).toBe(false)
   })
 
-  it('rejects unknown severity / category', () => {
-    expect(isRemediationFlag({ ...validFlag(), severity: 'block' })).toBe(false)
-    expect(isRemediationFlag({ ...validFlag(), category: 'made-up' })).toBe(false)
+  it('honours a custom hard-floor config', () => {
+    const cfg = createHardFloorConfig(['siteAccess'])
+    const flag = createRemediationFlag(input({ category: 'siteAccess', source: 'universal', dismissible: true }), cfg)
+    expect(flag.source).toBe('hardFloor')
+    expect(flag.dismissible).toBe(false)
   })
 
-  it('rejects a wrong or missing source', () => {
-    expect(isRemediationFlag({ ...validFlag(), source: 'foreman' })).toBe(false)
-    const { source: _drop, ...noSource } = validFlag()
-    void _drop
-    expect(isRemediationFlag(noSource)).toBe(false)
+  it('rejects an unknown category', () => {
+    // Cast simulates untrusted/runtime data outside the registry.
+    expect(() => createRemediationFlag(input({ category: 'compaction' as never }), DEFAULT_HARD_FLOOR_CONFIG)).toThrow(/unknown remediation category/i)
   })
+})
 
-  it('rejects out-of-range confidence and malformed target', () => {
-    expect(isRemediationFlag(validFlag({ confidence: 1.5 }))).toBe(false)
-    expect(isRemediationFlag(validFlag({ confidence: -0.1 }))).toBe(false)
-    expect(isRemediationFlag({ ...validFlag(), target: { kind: 'quote' } })).toBe(false)
-  })
-
-  it('rejects non-objects', () => {
-    for (const x of [null, undefined, 42, 'flag', []]) {
-      expect(isRemediationFlag(x)).toBe(false)
-    }
+describe('isRemediationFlag', () => {
+  it('accepts a well-formed flag and rejects malformed ones', () => {
+    const good = createRemediationFlag(input({ category: 'tipFees' }), DEFAULT_HARD_FLOOR_CONFIG)
+    expect(isRemediationFlag(good)).toBe(true)
+    expect(isRemediationFlag({ ...good, severity: 'advisory' })).toBe(false) // old value gone
+    expect(isRemediationFlag({ ...good, source: 'apprentice' })).toBe(false) // forbidden source
+    expect(isRemediationFlag({ ...good, category: 'completeness' })).toBe(false) // off-registry
+    const { dismissible: _d, ...noDismissible } = good
+    void _d
+    expect(isRemediationFlag(noDismissible)).toBe(false)
   })
 })

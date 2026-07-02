@@ -1,44 +1,54 @@
 import { describe, it, expect } from 'vitest'
-import { VALIDATION_STATUSES, type GuardianReviewRequest } from '../review-request'
-import { isGuardianReviewRequest } from '../guards'
+import { VALIDATION_STATUSES, type QuoteReviewRequestShape } from '../review-request'
+import { isQuoteReviewRequest, isGuardianReviewRequest } from '../guards'
+import { operatorId, reviewedAmount } from '../branded'
 
-const validRequest = (over: Partial<GuardianReviewRequest> = {}): GuardianReviewRequest => ({
+const request = (over: Partial<QuoteReviewRequestShape> = {}): QuoteReviewRequestShape => ({
+  reviewContractVersion: 1,
   quoteId: 'q_123',
-  quote: { quoteId: 'q_123', trade: 'concreting', jobType: 'slab', totals: { total: 9369, marginPct: 22 }, scopeNote: '40m² slab' },
-  validation: { status: 'WARN', findings: [{ severity: 'warn', code: 'soil-unknown', detail: 'Ground not confirmed.' }] },
+  operatorId: operatorId('op_dave'),
+  quote: {
+    quoteId: 'q_123',
+    trade: 'earthworks',
+    jobType: 'excavation',
+    totals: { subtotalExGst: reviewedAmount(8000), gst: reviewedAmount(800), total: reviewedAmount(8800), marginPct: 18 },
+    scopeNote: 'bulk dig 200m²',
+  },
+  validation: { status: 'WARN', findings: [{ severity: 'warn', code: 'spoil-unpriced', detail: 'no disposal' }] },
   ...over,
 })
 
-describe('GuardianReviewRequest — input contract', () => {
-  it('accepts a well-formed request', () => {
-    expect(isGuardianReviewRequest(validRequest())).toBe(true)
+describe('QuoteReviewRequest — input contract', () => {
+  it('accepts a well-formed, version-1 request', () => {
+    expect(isQuoteReviewRequest(request())).toBe(true)
+  })
+
+  it('exposes the same guard under both names', () => {
+    expect(isQuoteReviewRequest).toBe(isGuardianReviewRequest)
+  })
+
+  it('requires reviewContractVersion === 1', () => {
+    expect(isQuoteReviewRequest({ ...request(), reviewContractVersion: 2 })).toBe(false)
+    const { reviewContractVersion: _v, ...noVersion } = request()
+    void _v
+    expect(isQuoteReviewRequest(noVersion)).toBe(false)
   })
 
   it('accepts every validation status', () => {
     for (const status of VALIDATION_STATUSES) {
-      expect(isGuardianReviewRequest(validRequest({ validation: { status, findings: [] } }))).toBe(true)
+      expect(isQuoteReviewRequest(request({ validation: { status, findings: [] } }))).toBe(true)
     }
   })
 
-  it('accepts an optional learningProfileId', () => {
-    expect(isGuardianReviewRequest(validRequest({ learningProfileId: 'lp_abc' }))).toBe(true)
-  })
-
-  it('rejects a missing quoteId or quote snapshot', () => {
-    const { quoteId: _q, ...noId } = validRequest()
+  it('rejects missing ids, bad status, or non-array findings', () => {
+    const { quoteId: _q, ...noId } = request()
     void _q
-    expect(isGuardianReviewRequest(noId)).toBe(false)
-    expect(isGuardianReviewRequest({ ...validRequest(), quote: { trade: 'concreting' } })).toBe(false)
-  })
-
-  it('rejects an unknown validation status or non-array findings', () => {
-    expect(isGuardianReviewRequest({ ...validRequest(), validation: { status: 'MAYBE', findings: [] } })).toBe(false)
-    expect(isGuardianReviewRequest({ ...validRequest(), validation: { status: 'PASS', findings: 'none' } })).toBe(false)
+    expect(isQuoteReviewRequest(noId)).toBe(false)
+    expect(isQuoteReviewRequest({ ...request(), validation: { status: 'MAYBE', findings: [] } })).toBe(false)
+    expect(isQuoteReviewRequest({ ...request(), validation: { status: 'PASS', findings: 'none' } })).toBe(false)
   })
 
   it('rejects non-objects', () => {
-    for (const x of [null, undefined, 7, 'req', []]) {
-      expect(isGuardianReviewRequest(x)).toBe(false)
-    }
+    for (const x of [null, undefined, 5, 'req', []]) expect(isQuoteReviewRequest(x)).toBe(false)
   })
 })

@@ -1,60 +1,93 @@
-// RemediationFlag — the ONLY output of the TerrainPro Apprentice guardian service.
+// RemediationFlag — the advisory output unit of the TerrainPro Apprentice guardian.
 //
-// The Apprentice guardian is an ADVISORY service. It inspects a validated quote
-// after the Validation Engine and before send/export, and returns zero or more
-// RemediationFlags. It NEVER mutates the quote, quantities, pricing, RateBook, BI,
-// Business Profile, Quote Workspace or pipeline internals — a flag is a read-only
-// observation plus an optional suggested remediation. Acting on a flag is always
-// the contractor's / caller's decision.
-//
-// M1 is TYPES & CONTRACTS ONLY. There is no HTTP route, no Cloud Run, no Firestore
-// and no Vertex AI / Gemini here — those arrive in later milestones.
+// A flag is a read-only observation. The guardian NEVER mutates quotes, quantities,
+// pricing, RateBook, BI, Business Profile, Quote Workspace or pipeline internals.
+// createRemediationFlag() is the only sanctioned way to build a flag: it enforces
+// the approved category registry and the hard-floor rules.
 
-/** How serious a flag is. Advisory scale — nothing here blocks or mutates. */
-export const REMEDIATION_SEVERITIES = ['info', 'advisory', 'critical'] as const
+import { isApprovedCategory, type RemediationCategory } from './categories'
+import { isHardFloorCategory, type HardFloorConfig } from './hard-floor'
+
+export const REMEDIATION_SEVERITIES = ['info', 'warning', 'critical'] as const
 export type RemediationSeverity = (typeof REMEDIATION_SEVERITIES)[number]
 
-/** The kind of concern a flag raises. */
-export const REMEDIATION_CATEGORIES = [
-  'completeness',
-  'accuracy',
-  'compliance',
-  'commercial',
-  'consistency',
-] as const
-export type RemediationCategory = (typeof REMEDIATION_CATEGORIES)[number]
+/** Provenance of a flag. 'hardFloor' is forced for hard-floor categories. */
+export const REMEDIATION_SOURCES = ['universal', 'learned', 'hardFloor'] as const
+export type RemediationSource = (typeof REMEDIATION_SOURCES)[number]
 
-/**
- * A read-only pointer to WHAT a flag concerns (e.g. a line item or a total).
- * The guardian never edits the target — this is a reference for the UI/caller only.
- */
+/** Read-only pointer to WHAT a flag concerns. The guardian never edits the target. */
 export interface RemediationTargetRef {
-  /** Generic kind, e.g. 'quote' | 'line-item' | 'total' | 'validation-finding'. */
   kind: string
-  /** Identifier within that kind. Opaque to the guardian. */
   id: string
 }
 
-/**
- * A single advisory observation from the guardian. Read-only by contract.
- */
 export interface RemediationFlag {
-  /** Stable machine code for the check, e.g. 'missing-scope-note'. */
+  /** Stable machine code for the check. */
   code: string
-  severity: RemediationSeverity
   category: RemediationCategory
+  severity: RemediationSeverity
+  source: RemediationSource
+  /** Whether the operator may dismiss this flag. Always false on the hard floor. */
+  dismissible: boolean
   /** Short human-readable headline. */
   title: string
-  /** Plain-language explanation of what was observed and why it matters. */
+  /** Plain-language explanation. */
   detail: string
-  /** Optional: what the contractor could do about it. Advice only — never applied. */
   suggestedAction?: string
-  /** Optional: why the guardian raised this (audit / future learning). */
   rationale?: string
-  /** Optional: read-only pointer to the thing this flag is about. */
   target?: RemediationTargetRef
-  /** Optional model confidence in [0, 1] (populated once the M2 AI backend exists). */
+  /** Optional model confidence in [0, 1] (populated by a later milestone's backend). */
   confidence?: number
-  /** Provenance — always the guardian service. */
-  source: 'apprentice'
+}
+
+/**
+ * Input to the factory. `source` and `dismissible` are suggestions — the hard-floor
+ * config overrides them for hard-floor categories.
+ */
+export interface RemediationFlagInput {
+  code: string
+  category: RemediationCategory
+  severity: RemediationSeverity
+  title: string
+  detail: string
+  /** Default 'universal'. Ignored (forced 'hardFloor') for hard-floor categories. */
+  source?: RemediationSource
+  /** Default true. Ignored (forced false) for hard-floor categories. */
+  dismissible?: boolean
+  suggestedAction?: string
+  rationale?: string
+  target?: RemediationTargetRef
+  confidence?: number
+}
+
+/**
+ * Build a RemediationFlag. Pure. Takes the hard-floor config explicitly.
+ *
+ *  - Rejects any category not in the approved registry (throws).
+ *  - For any category in `hardFloorConfig`, FORCES `dismissible: false` and
+ *    `source: 'hardFloor'`, regardless of what the input asked for.
+ *  - Otherwise uses the input's source (default 'universal') and dismissible
+ *    (default true).
+ */
+export function createRemediationFlag(input: RemediationFlagInput, hardFloorConfig: HardFloorConfig): RemediationFlag {
+  if (!isApprovedCategory(input.category)) {
+    throw new Error(`Unknown remediation category: ${String(input.category)}`)
+  }
+
+  const onHardFloor = isHardFloorCategory(hardFloorConfig, input.category)
+
+  const flag: RemediationFlag = {
+    code: input.code,
+    category: input.category,
+    severity: input.severity,
+    source: onHardFloor ? 'hardFloor' : (input.source ?? 'universal'),
+    dismissible: onHardFloor ? false : (input.dismissible ?? true),
+    title: input.title,
+    detail: input.detail,
+  }
+  if (input.suggestedAction !== undefined) flag.suggestedAction = input.suggestedAction
+  if (input.rationale !== undefined) flag.rationale = input.rationale
+  if (input.target !== undefined) flag.target = input.target
+  if (input.confidence !== undefined) flag.confidence = input.confidence
+  return flag
 }
