@@ -116,6 +116,37 @@ Deterministic rule *identity* stays on the existing `RemediationFlag.code` — n
 - ❌ No `ReviewFn` implementation shipped from `src` (the no-op used in tests is
   **test/reference only**)  ❌ No imports from the host app
 
+## Milestone status — M2B-1: deterministic hard-floor rules
+
+M2B-1 implements **exactly two** deterministic rules on the M2A structured
+input — nothing else. Rules are pure, stateless and structured-input only: no
+free text, no keyword inference, no I/O, no environment reads, no network, no
+external BYDA lookup. Each rule emits at most **one** flag. Rule identity stays
+on `RemediationFlag.code` — still no `ruleId`.
+
+- **`HF-SPOIL`** (`src/rules/hfSpoil.ts`) — an `excavation` review item with no
+  `spoilDisposal` item → one `critical`, non-dismissible `spoilDisposal` flag.
+- **`HF-SERVICES`** (`src/rules/hfServices.ts`) — the three-state machine
+  locked in the M2A design above, gated on an `excavation` item. One module
+  owns both `HF-SERVICES` (critical) and `HF-SERVICES-NOT-REQUIRED-ASSERTED`
+  (info); they are structurally impossible to co-emit. Absent fields,
+  `'unknown'` and unrecognised future values are "no signal".
+- **Registry** (`src/rules/index.ts`) — deterministic order: `HF-SPOIL`, then
+  `HF-SERVICES`; output order matches registry order and is stable. These
+  checks are owned deterministically — a future LLM review must not duplicate
+  or suppress them. `RK-ACCESS`, `RK-TRAFFIC`, `RK-WATER`, `RK-COMPACT` and
+  `CM-MARGIN` are deliberately absent pending later contract support.
+- **Wiring** (`review.ts`) — `deterministicReview: ReviewFn` runs the registry
+  and always returns an empty learning delta.
+
+### Explicitly NOT in M2B-1
+
+- ❌ No RK rules  ❌ No CM-MARGIN  ❌ No contract changes  ❌ No new item kinds
+- ❌ No keyword inference / free-text parsing  ❌ No external BYDA lookup
+- ❌ No legal/compliance claims  ❌ No `ruleId`
+- ❌ No `/review` route, Cloud Run, Firestore, Vertex AI / Gemini, LLM logic
+- ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package

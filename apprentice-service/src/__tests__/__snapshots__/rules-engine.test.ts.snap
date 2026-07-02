@@ -1,0 +1,26 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`deterministic rule registry > output order is stable (snapshot) 1`] = `
+[
+  {
+    "category": "spoilDisposal",
+    "code": "HF-SPOIL",
+    "detail": "Excavation is included, but spoil disposal / cart-away is not confirmed in the quote.",
+    "dismissible": false,
+    "severity": "critical",
+    "source": "hardFloor",
+    "suggestedAction": "Add a spoil disposal / cart-away allowance, or confirm the quote already covers getting spoil off site.",
+    "title": "Spoil disposal not confirmed",
+  },
+  {
+    "category": "serviceProtection",
+    "code": "HF-SERVICES",
+    "detail": "Excavation is included, but the quote does not confirm the BYDA (Before You Dig Australia) / service-location step.",
+    "dismissible": false,
+    "severity": "critical",
+    "source": "hardFloor",
+    "suggestedAction": "Add a BYDA check or service-location allowance to the quote, or record where the step stands — or mark it as not required — in site conditions.",
+    "title": "BYDA / service location not confirmed",
+  },
+]
+`;
