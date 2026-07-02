@@ -1,0 +1,15 @@
+{
+  "name": "@terrainpro/apprentice-service",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "TerrainPro Apprentice — standalone guardian service. M1: types & contracts only. No HTTP routes, no Cloud Run, no Firestore, no Vertex AI / Gemini. Advisory-only: returns RemediationFlag[] and never mutates anything.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.9"
+  }
+}
