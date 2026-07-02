@@ -147,6 +147,47 @@ on `RemediationFlag.code` — still no `ruleId`.
 - ❌ No `/review` route, Cloud Run, Firestore, Vertex AI / Gemini, LLM logic
 - ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
 
+## Milestone status — M2B-2: advisory site-risk rules
+
+M2B-2 adds **exactly three** deterministic advisory rules on the M2A
+`siteConditions` structured input — nothing else. Like M2B-1 they are pure,
+stateless and structured-input only: no free text, no keyword inference, no
+I/O, no environment reads, no network. Each rule reads **one** producer-asserted
+field, emits at most **one** flag, and keeps rule identity on
+`RemediationFlag.code` — still no `ruleId`.
+
+Unlike the M2B-1 hard-floor rules, these are **advisory**: they emit under
+categories that are **not** on the default hard floor, so each flag is a
+**dismissible `warning`** with `source: 'universal'`. (If a deployment adds one
+of these categories to its hard-floor config, `createRemediationFlag` forces
+that flag non-dismissible / `hardFloor` — the rules hardcode no assumption.)
+They are **not gated on an excavation item**: an access / road-reserve / wet
+condition is a site fact the operator asserted directly, independent of the line
+items, so each rule reads its one field and nothing else.
+
+- **`RK-ACCESS`** (`src/rules/rkAccess.ts`) — `siteConditions.access ===
+  'restricted'` → one `warning` `siteAccess` flag. `'open'`, `'moderate'` and an
+  absent field are "no signal".
+- **`RK-TRAFFIC`** (`src/rules/rkTraffic.ts`) — `siteConditions.roadReserveAdjacent
+  === true` → one `warning` `trafficManagement` flag. `false` and absent are "no
+  signal".
+- **`RK-WATER`** (`src/rules/rkWater.ts`) — `siteConditions.wetConditions ===
+  true` → one `warning` `dewatering` flag. `false` and absent are "no signal".
+- **Registry** (`src/rules/index.ts`) — hard-floor rules (`HF-SPOIL`,
+  `HF-SERVICES`) always precede the advisory rules (`RK-ACCESS`, `RK-TRAFFIC`,
+  `RK-WATER`); output order matches registry order and is stable. `RK-COMPACT`
+  and `CM-MARGIN` remain deliberately absent — no compaction-required trigger
+  field and no margin threshold exist in the contract yet.
+
+### Explicitly NOT in M2B-2
+
+- ❌ No `RK-COMPACT`  ❌ No `CM-MARGIN`  ❌ No contract changes  ❌ No new item
+  kinds / site-condition fields  ❌ No new categories  ❌ No contract-version bump
+- ❌ No keyword inference / free-text parsing  ❌ No external BYDA lookup
+- ❌ No legal/compliance claims  ❌ No `ruleId`
+- ❌ No `/review` route, Cloud Run, Firestore, Vertex AI / Gemini, LLM logic
+- ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
