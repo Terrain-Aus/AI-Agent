@@ -4,7 +4,9 @@
 
 import { isApprovedCategory } from './categories'
 import { REMEDIATION_SEVERITIES, REMEDIATION_SOURCES, type RemediationFlag } from './remediation-flag'
+import { isReviewItem } from './review-items'
 import { VALIDATION_STATUSES, type QuoteReviewRequest } from './review-request'
+import { isSiteConditions } from './site-conditions'
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null
 const isStr = (x: unknown): x is string => typeof x === 'string'
@@ -36,6 +38,11 @@ export function isGuardianReviewRequest(x: unknown): x is QuoteReviewRequest {
   if (!isObj(quote) || !isStr(quote.quoteId)) return false
   const validation = x.validation
   if (!isObj(validation) || !oneOf(VALIDATION_STATUSES, validation.status) || !Array.isArray(validation.findings)) return false
+  // M2A additive blocks — validated ONLY when present; absent keeps M1 behaviour.
+  if (quote.reviewItems !== undefined) {
+    if (!Array.isArray(quote.reviewItems) || !quote.reviewItems.every(isReviewItem)) return false
+  }
+  if (x.siteConditions !== undefined && !isSiteConditions(x.siteConditions)) return false
   return true
 }
 
