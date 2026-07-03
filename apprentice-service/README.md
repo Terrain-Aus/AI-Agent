@@ -214,6 +214,60 @@ no new rules, no behaviour changes, no contract changes, no version bump.
 - ❌ No `/review` route, Cloud Run, Firestore, Vertex AI / Gemini, LLM logic
 - ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
 
+## Milestone status — M3A: AI review boundary (provider-agnostic)
+
+M3A adds the **safe AI review boundary** that a future LLM review will plug
+into. It is **provider-agnostic**: real LLM integration (provider, prompt
+protocol, confidence) is **deferred** to later milestones — M3A ships **no**
+provider implementation, no network calls, no env vars, and tests use
+**fake/mock providers only**. Deterministic review is untouched and the
+**deterministic rules remain authoritative**: the AI layer runs *after* the
+deterministic pass, is **advisory only**, and can never suppress, duplicate,
+reorder or edit deterministic flags.
+
+- **Locked contracts** (`src/ai/contracts.ts`) — `AiObservation`
+  (`kind: observation | question | suggestion`, `message`, optional
+  `relatedFlagCodes`), `AiReviewStatus`
+  (`completed | unavailable | invalidOutput`), `AiReviewProvenance`,
+  `AiReviewResult`, `AiReviewContext` and the injected `AiReviewProvider`
+  (`review(context): Promise<unknown>` — all provider output is untrusted).
+  `AiObservation` is a **separate contract** from `RemediationFlag`: AI
+  observations have **no severity** (AI cannot emit critical), **no code, no
+  id, no rule identifier, no category, no dismissible, no source** — they are
+  advisory by construction and cannot own or duplicate deterministic
+  `RemediationFlag.code` values. `relatedFlagCodes` is a *reference only*, and
+  only to codes **emitted in the current deterministic review**.
+- **Sanitiser** (`src/ai/sanitise.ts`) — **all-or-nothing** validation of raw
+  provider output: wrong shape, invalid kind, missing/empty message, any
+  ownership field, a bad `relatedFlagCodes` type, or a reference to a
+  non-emitted code rejects the **entire** output (no partial filtering or
+  repair). Keys are allowlisted (`kind`, `message`, `relatedFlagCodes` —
+  nothing else).
+- **Runner** (`src/ai/run-ai-review.ts`) — `runAiReview(request, flags,
+  provider)` runs **after** deterministic review, builds the `AiReviewContext`
+  (the ONLY data a provider sees) and returns an `AiReviewResult`.
+  **Commercial data stays out of the AI context entirely**: no totals, no
+  rates, no margins, no GST, no Business Profile, no supplier costs — review
+  items are copied **without their `amount`**. Provider throw/rejection →
+  `status: 'unavailable'`; malformed output → `status: 'invalidOutput'`; both
+  with safe generic messages (no raw errors or stack traces) — the boundary
+  itself never throws and never mutates any input.
+- **Isolation scan** (`src/__tests__/ai-isolation.test.ts`) — asserts the AI
+  boundary source contains no provider/cloud/network/env references
+  (`gemini`, `vertex`, `googleapis`, `fetch(`, `http.request`,
+  `https.request`, `process.env`).
+
+### Explicitly NOT in M3A
+
+- ❌ No Gemini / Vertex AI / Google Cloud / Cloud Run / Firestore
+- ❌ No real LLM calls, network calls, env vars, secrets or API keys
+- ❌ No prompt protocol (M3B)  ❌ No confidence fields/display (M3D)
+- ❌ No new deterministic rules (`RK-COMPACT`, `CM-MARGIN` stay absent)
+  ❌ No change to deterministic rule semantics, registry order or `review()`
+- ❌ No verdict enums / pass-block aggregation  ❌ No fail-closed findings
+- ❌ No production `/review` endpoint wiring  ❌ No contract-breaking changes
+- ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
