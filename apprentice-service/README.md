@@ -268,6 +268,50 @@ reorder or edit deterministic flags.
 - ❌ No production `/review` endpoint wiring  ❌ No contract-breaking changes
 - ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
 
+## Milestone status — M3B: AI prompt protocol (provider-agnostic)
+
+M3B adds the **provider-agnostic prompt protocol** for the future LLM review:
+it defines *how* a future provider asks a model for advisory observations.
+M3B **calls no model** — no provider implementation, no network, no env vars,
+no secrets, no new dependencies. Deterministic review behaviour and the locked
+M3A contract shapes are untouched, and the **deterministic rules remain
+authoritative**.
+
+- **Prompt contract** (`src/ai/prompt-protocol.ts`) — the locked
+  `AiReviewPrompt` (`systemInstruction`, `userInstruction`, `context`) and the
+  pure builder `buildAiReviewPrompt(context: AiReviewContext)`: accepts only
+  the safe M3A context (already free of all commercial data), mutates nothing,
+  performs no I/O, and is deterministic — same context → identical prompt.
+- **Prompt rules** — the instructions tell any future model: the deterministic
+  flags are **already emitted and authoritative**; never duplicate (in any
+  wording) or suppress them; output is **advisory only** (`observation` /
+  `question` / `suggestion`); no severity, no critical, no hard-floor
+  language, no blocking/pass-fail decisions; the model **may only output
+  observation objects with `kind`, `message`, and optional
+  `relatedFlagCodes`** (allowlist — the prompt never enumerates rule-identity
+  field names); return **only** the locked JSON shape with **no extra keys**;
+  no quote/quantity/pricing/rate/Business Profile changes; no pricing advice
+  based on amounts; no legal/compliance or external-verification claims (BYDA,
+  services, supplier prices, site conditions); if unsure, **ask a question**
+  instead of asserting. The prompt never asks the model for provenance.
+- **Emitted-code guidance** — the user instruction lists exactly the codes
+  emitted in the current review as the only valid `relatedFlagCodes`
+  references (or says to omit `relatedFlagCodes` when none were emitted),
+  matching the M3A sanitiser's reference-only validation.
+
+### Explicitly NOT in M3B
+
+- ❌ No Gemini / Vertex AI / Google Cloud / Cloud Run / Firestore
+- ❌ No real LLM calls, provider implementation, network calls, env vars,
+  secrets or API keys
+- ❌ No confidence fields/display (M3D)  ❌ No learning loop
+- ❌ No M3A contract shape changes (`AiObservation` unchanged — no new fields)
+- ❌ No new deterministic rules  ❌ No change to deterministic rule semantics,
+  registry order, `review()`, `runAiReview()` or the sanitiser
+- ❌ No verdict enums / pass-block aggregation
+- ❌ No production `/review` endpoint wiring
+- ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
