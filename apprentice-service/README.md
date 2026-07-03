@@ -188,6 +188,32 @@ items, so each rule reads its one field and nothing else.
 - ❌ No `/review` route, Cloud Run, Firestore, Vertex AI / Gemini, LLM logic
 - ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
 
+## Milestone status — M2C: review-engine hardening
+
+M2C is a **quality/invariant milestone**: it adds tests and documentation only —
+no new rules, no behaviour changes, no contract changes, no version bump.
+
+- **Invariant suite** (`src/__tests__/m2c-invariants.test.ts`) — locks registry
+  completeness (exactly the five deterministic rules), registry uniqueness (no
+  duplicate `RemediationFlag.code` ownership), stable output order (registry
+  order is output order), determinism (same input → identical flags across
+  runs), no-mutation (deep-frozen inputs run clean), emitted-code ownership
+  (every emitted code belongs to a registered rule), exact full-flag behaviour
+  locks for all five rules, empty/undefined-input behaviour, and the deliberate
+  absence of `RK-COMPACT`, `CM-MARGIN` and any `ruleId`/`rule_id`.
+- **[`RULES.md`](RULES.md)** — the human-readable registry index: each rule's
+  code, owning module, tier (hard-floor vs advisory), trigger, suppressor /
+  silent conditions and introducing milestone, plus the boundary a future LLM
+  review must respect (no duplication, no suppression of deterministic rules).
+
+### Explicitly NOT in M2C
+
+- ❌ No new rules (`RK-COMPACT`, `CM-MARGIN` stay absent)  ❌ No rule-semantics
+  changes  ❌ No contract changes / version bump  ❌ No `ruleId`
+- ❌ No fail-closed findings  ❌ No validation framework  ❌ No verdict enums
+- ❌ No `/review` route, Cloud Run, Firestore, Vertex AI / Gemini, LLM logic
+- ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
