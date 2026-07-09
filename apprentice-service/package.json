@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "TerrainPro Apprentice — standalone guardian service. M1: types & contracts only. No HTTP routes, no Cloud Run, no Firestore, no Vertex AI / Gemini. Advisory-only: returns RemediationFlag[] and never mutates anything.",
+  "description": "TerrainPro Apprentice — standalone guardian service. M4A adds a framework-free POST /review transport adapter around the deterministic review contract (no server/listener, no Cloud Run, no Firestore, no AI runtime wiring). Advisory-only: returns RemediationFlag[] and never mutates anything.",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"

@@ -427,6 +427,48 @@ runAiReview() → M3A sanitiser → AiReviewResult`.
 - ❌ No changes outside `apprentice-service/` except the root
   package/lockfile entries for `@google/genai`
 
+## Milestone status — M4A: review endpoint adapter
+
+M4A exposes the **existing** deterministic review contract behind a
+transport-safe **POST `/review`** adapter — a safe transport boundary **first**,
+AI runtime wiring later. The adapter is **framework-free** (no Express /
+Fastify / Hono / Koa, no server/listener, no port) and is a thin, pure function
+around existing contracts only.
+
+- **Adapter** (`src/endpoint/review-endpoint.ts`) — `handleReviewEndpoint`
+  takes a transport-shaped `ReviewEndpointRequest`
+  (`{ method, path, body: unknown }`) and returns a `ReviewEndpointResponse`:
+  - wrong path → `404` `NOT_FOUND`; wrong method → `405` `METHOD_NOT_ALLOWED`
+  - body validated by the **existing** `isQuoteReviewRequest` guard; failure →
+    `400` `INVALID_REVIEW_REQUEST`
+  - valid body → the **existing** `deterministicReview` runs with the existing
+    `DEFAULT_HARD_FLOOR_CONFIG` → `200` whose body **IS** the existing
+    `ReviewResult` (`{ flags, profileDelta }`) — **no new success wrapper**
+  - any internal throw → `500` `REVIEW_FAILED` with a safe static body — no
+    stack traces, no raw error messages, no request echo
+- **Learning profile** — M4A has no Firestore and no persisted profile, so the
+  review runs against an in-memory **empty** `LearningProfile` built from the
+  request's `operatorId` (`{ operatorId, profileVersion: 1, events: [] }`).
+  Transport-testing only; nothing is persisted, and deterministic review never
+  reads the profile (its delta is always empty).
+- **Isolation** — the adapter never mutates the input, never creates or edits
+  flags, calls no AI (`runAiReview`, `PromptedAiReviewProvider` and
+  `VertexGenerationClient` are untouched), imports nothing from `src/ai`,
+  performs no network/O and reads no environment. Locked by tests.
+
+### Explicitly NOT in M4A
+
+- ❌ No AI runtime wiring — no `runAiReview` call, no `VertexGenerationClient`
+  instantiation, no `@google/genai` import, no `aiReview` response field
+- ❌ No web framework, no long-running server/listener, no port
+- ❌ No Cloud Run / Dockerfile / deployment  ❌ No Firestore / profile persistence
+- ❌ No env reads, API keys, secrets or runtime config  ❌ No frontend wiring
+- ❌ No contract changes (`QuoteReviewRequest`, `ReviewResult`,
+  `RemediationFlag`, `LearningProfile`, M3A/M3B/M3C shapes all unchanged)
+- ❌ No change to deterministic rules, registry order or review semantics
+- ❌ No confidence scoring (M3D)  ❌ No changes outside `apprentice-service/`
+- ❌ No new dependencies (lockfile unchanged)
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
