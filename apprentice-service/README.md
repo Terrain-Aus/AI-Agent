@@ -469,6 +469,52 @@ around existing contracts only.
 - ❌ No confidence scoring (M3D)  ❌ No changes outside `apprentice-service/`
 - ❌ No new dependencies (lockfile unchanged)
 
+## Milestone status — M4B: AI review endpoint composition
+
+M4B adds an **AI-capable** POST `/review` adapter that COMPOSES existing
+pieces only: the unchanged M4A deterministic adapter, the M3A `runAiReview`
+runner, and an **injected** `AiReviewProvider`. No real provider is wired and
+no model call is made — M4B is composition, not integration.
+
+- **Adapter** (`src/endpoint/ai-review-endpoint.ts`) —
+  `handleReviewEndpointWithAi(request, provider)`:
+  - calls the **existing** `handleReviewEndpoint` first; any M4A error
+    (404/405/400/500) is returned **unchanged** and the provider is **never
+    called**
+  - on a deterministic 200, calls the **existing** `runAiReview` with the
+    request body, the deterministic flags, and the **injected** provider
+  - success → `200` whose body is the existing `ReviewResult` **plus** an
+    additive `aiReview: AiReviewResult` field:
+    `{ flags, profileDelta, aiReview }`
+  - an unexpected composition throw → the same safe static `500`
+    `REVIEW_FAILED` as M4A
+- **AI failure is not an endpoint failure** — provider throws/rejections
+  land as `aiReview.status: 'unavailable'`, malformed output as
+  `aiReview.status: 'invalidOutput'` (both with `observations: []`), and the
+  endpoint still returns `200` with the deterministic result intact.
+- **Deterministic-only M4A unchanged** — `handleReviewEndpoint` still returns
+  the bare `ReviewResult` with **no** `aiReview` field; `ReviewResult` itself
+  is unchanged. The AI body shape is additive to the NEW handler only.
+- **Boundary preserved** — the provider sees only the M3A `AiReviewContext`
+  (amount-free review items, site conditions, deterministic flag copies): no
+  totals, no GST, no margin, no rates/prices, no Business Profile, no
+  scopeNote, no raw request. Locked by tests.
+
+### Explicitly NOT in M4B
+
+- ❌ No real AI/model call — no `VertexGenerationClient` instantiation, no
+  `PromptedAiReviewProvider` instantiation, no `@google/genai` import in the
+  adapter, no runtime config
+- ❌ No env reads, API keys or secrets  ❌ No network / fetch / http(s)
+- ❌ No web framework, server/listener or port  ❌ No Cloud Run / Dockerfile
+- ❌ No Firestore / persistence  ❌ No frontend / Quote Workspace wiring
+- ❌ No contract changes (`ReviewResult`, `RemediationFlag`,
+  `QuoteReviewRequest`, `AiObservation`, `AiReviewResult`, `AiReviewContext`,
+  `ProviderPayload`, `AiGenerationClient` all unchanged)
+- ❌ No change to `handleReviewEndpoint`, deterministic rules, registry order
+  or review semantics
+- ❌ No confidence scoring (M3D)  ❌ No new dependencies (lockfile unchanged)
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package

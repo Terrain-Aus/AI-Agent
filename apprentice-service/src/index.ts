@@ -6,11 +6,14 @@
 //   post-deterministic runner — no real provider, no network, no LLM calls)
 // + M4A (framework-free POST /review transport adapter around the existing
 //   deterministic review contract — no server/listener, no port, no env reads,
-//   no persistence, no AI call).
+//   no persistence, no AI call)
+// + M4B (AI-capable POST /review adapter composing the unchanged M4A
+//   deterministic adapter with the M3A runAiReview runner behind an INJECTED
+//   AiReviewProvider — no real provider, no model call, no runtime config).
 //
 // Everything exported here is a type, a contract, a runtime guard, a pure factory,
-// a pure opaque constructor/accessor, a pure deterministic rule, or the pure M4A
-// transport adapter. No server, no Cloud Run, no Firestore, no LLM logic.
+// a pure opaque constructor/accessor, a pure deterministic rule, or a pure
+// M4A/M4B transport adapter. No server, no Cloud Run, no Firestore, no LLM logic.
 
 export * from './categories'
 export * from './branded'
@@ -25,3 +28,4 @@ export * from './rules'
 export * from './guards'
 export * from './ai'
 export * from './endpoint/review-endpoint'
+export * from './endpoint/ai-review-endpoint'
