@@ -44,6 +44,9 @@ describe('M3A — AI boundary modules are provider/cloud/network free', () => {
     expect(files.some((f) => f.endsWith('contracts.ts'))).toBe(true)
     expect(files.some((f) => f.endsWith('sanitise.ts'))).toBe(true)
     expect(files.some((f) => f.endsWith('run-ai-review.ts'))).toBe(true)
+    // M3C-1 provider-port files are covered by the same forbidden-reference scan.
+    expect(files.some((f) => f.endsWith('provider-payload.ts'))).toBe(true)
+    expect(files.some((f) => f.endsWith('prompted-provider.ts'))).toBe(true)
   })
 
   it('no AI boundary source references a provider, cloud SDK, network call, or environment read', () => {

@@ -312,6 +312,53 @@ authoritative**.
 - ❌ No production `/review` endpoint wiring
 - ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
 
+## Milestone status — M3C-1: provider adapter port + fake client wiring
+
+M3C-1 adds the **provider adapter port** that proves the safe provider-adapter
+path without connecting to a real provider: **no** Gemini, **no** Vertex, no
+cloud SDK dependency, no network, no env vars — tests use **fake generation
+clients only**. Dependency inspection at implementation time confirmed no
+Google/Vertex/Gemini SDK exists in the repo, and none was added. Deterministic
+review behaviour and the locked M3A/M3B contract shapes are untouched.
+
+- **Payload + client port** (`src/ai/provider-payload.ts`) — the locked
+  `ProviderPayload` (`systemInstruction`, `userInstruction`, `context` — the
+  safe M3A `AiReviewContext`, nothing else) and the injected
+  `AiGenerationClient` port
+  (`generate(payload: ProviderPayload): Promise<unknown>`). The payload
+  carries **no commercial data**: no quote, no request, no totals, no GST, no
+  margin, no rates, no prices, no Business Profile, no supplier costs, no
+  review-item amounts, no env/config/secrets.
+- **Adapter** (`src/ai/prompted-provider.ts`) — `PromptedAiReviewProvider`
+  implements the existing M3A `AiReviewProvider`: it accepts an injected
+  `AiGenerationClient`, calls `buildAiReviewPrompt(context)`, maps the prompt
+  into a `ProviderPayload`, hands the payload to the client and returns the
+  **raw unknown** generation result. It does not sanitise, parse or repair
+  output and does not mutate the context — the **M3A sanitiser remains the
+  only validator** of provider output, via the existing `runAiReview()` flow:
+  `AiReviewContext → PromptedAiReviewProvider → buildAiReviewPrompt →
+  ProviderPayload → injected client → raw unknown → runAiReview → sanitiser →
+  AiReviewResult`.
+- **Isolation scan extended** — the M3A source scan now also asserts the
+  provider-port files are present and (like all `src/ai/` source) free of
+  `gemini`, `vertex`, `googleapis`, `fetch(`, `http.request`,
+  `https.request` and `process.env`.
+
+### Explicitly NOT in M3C-1
+
+- ❌ No Gemini / Vertex AI / Google SDK / Cloud Run / Firestore
+- ❌ No real LLM calls, network calls (no `fetch`/`http(s).request`), env
+  vars, secrets or API keys  ❌ No new dependencies (lockfile unchanged)
+- ❌ No M3C-2 wiring  ❌ No confidence fields/display (M3D)
+- ❌ No M3A/M3B contract shape changes (`AiObservation`, `AiReviewResult`,
+  `AiReviewContext`, `AiReviewProvider`, `AiReviewPrompt` unchanged)
+- ❌ No new deterministic rules  ❌ No change to deterministic rule semantics,
+  registry order, `review()`, `runAiReview()`, `buildAiReviewPrompt()` or the
+  sanitiser
+- ❌ No production `/review` endpoint wiring  ❌ No frontend / Business
+  Profile / pricing / quantity work
+- ❌ No changes outside `apprentice-service/`
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
