@@ -2,8 +2,10 @@
 //
 // The guardian service must not reach into the host app (no ../../, no /src/, no
 // '@/' alias, no bare third-party runtime deps). It may only import: intra-package
-// relative paths, node: builtins, and — in test files — 'vitest'. This test scans
-// the package source and fails if anything escapes the boundary.
+// relative paths, node: builtins, — in test files — 'vitest', and — in the single
+// M3C-2 real provider integration file src/ai/vertex-generation-client.ts only —
+// the official Google Gen AI SDK '@google/genai'. This test scans the package
+// source and fails if anything escapes the boundary.
 
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -41,7 +43,11 @@ describe('dependency boundary — apprentice-service is isolated', () => {
         const intraPackage = spec.startsWith('./') || (spec.startsWith('../') && !spec.startsWith('../../'))
         const nodeBuiltin = spec.startsWith('node:')
         const vitestInTest = spec === 'vitest' && file.includes('__tests__')
-        if (intraPackage || nodeBuiltin || vitestInTest) continue
+        // M3C-2: the ONE real provider integration file may import the
+        // official Google Gen AI SDK. Nothing else may.
+        const genAiSdk =
+          spec === '@google/genai' && file.endsWith(join('ai', 'vertex-generation-client.ts'))
+        if (intraPackage || nodeBuiltin || vitestInTest || genAiSdk) continue
         offenders.push(`${file.replace(srcDir, 'src')} → "${spec}"`)
       }
     }

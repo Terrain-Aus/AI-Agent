@@ -359,10 +359,80 @@ review behaviour and the locked M3A/M3B contract shapes are untouched.
   Profile / pricing / quantity work
 - ❌ No changes outside `apprentice-service/`
 
+## Milestone status — M3C-2: real Vertex generation client
+
+M3C-2 adds the **one real provider integration**: `VertexGenerationClient`, a
+real generation client built on the official Google Gen AI SDK
+(`@google/genai`) in Vertex mode, behind the locked M3C-1 `AiGenerationClient`
+port. Nothing bypasses M3C-1 — the real client is injected into the existing
+`PromptedAiReviewProvider` exactly like a fake, and the **M3A sanitiser
+remains the only validator** of provider output:
+`ProviderPayload → VertexGenerationClient → raw unknown →
+runAiReview() → M3A sanitiser → AiReviewResult`.
+
+- **Real client** (`src/ai/vertex-generation-client.ts`) —
+  `VertexGenerationClient` implements the M3C-1 `AiGenerationClient`;
+  `VertexGenerationClientConfig` is **injected**: required `project`,
+  `location`, `model`, optional `apiVersion`. Nothing is hardcoded and there
+  are no defaults — a missing/empty required field throws instead of falling
+  back. **No `process.env` reads, no API keys, no secrets**: the SDK is
+  initialised in Vertex mode with the injected project/location, and
+  credential resolution is the SDK's own Google Cloud
+  application-credentials flow at call time. Server-side only; no config is
+  exposed to the frontend.
+- **Request mapping** — `generate(payload)` sends exactly
+  `payload.systemInstruction`, `payload.userInstruction` and the serialised
+  safe `payload.context` (plus the configured model id) in one SDK request.
+  The context is the M3A commercial-data-free `AiReviewContext`, so no
+  totals, GST, margin, rates, prices, Business Profile data, review-item
+  amounts or scope notes can reach the SDK — locked by tests.
+- **Output handling** — strict `JSON.parse` of the response text only; parse
+  failure returns the raw text unchanged, and a missing text body is
+  returned as-is. **No code-fence stripping, no prose trimming, no retry, no
+  repair, no fallback observations.** Malformed output becomes
+  `invalidOutput` and SDK throw/rejection becomes `unavailable` through the
+  existing `runAiReview()`, with no raw SDK error or stack exposed.
+- **Dependency** — `@google/genai` is the ONLY new dependency (none of
+  `@google/*`/`googleapis`/vertex existed in the repo before): added to the
+  root `package.json` (devDependency, so repo typecheck/tests resolve it)
+  and lockfile, and declared as a runtime `dependency` in
+  `apprentice-service/package.json` for future standalone use.
+- **Isolation, carefully extended** — the safe boundary files
+  (`contracts.ts`, `sanitise.ts`, `run-ai-review.ts`, `prompt-protocol.ts`,
+  `provider-payload.ts`, `prompted-provider.ts`) remain provider / cloud /
+  network / env free; only `vertex-generation-client.ts` may import
+  `@google/genai`, and nothing else external; no `fetch(`, `http.request`,
+  `https.request`, `process.env` or API-key usage anywhere in `src/ai`; no
+  non-test apprentice source reads `process.env`. Enforced by the extended
+  isolation scan and a single narrow exception in the boundary test.
+- **Tests are mocked only** — the SDK is module-mocked: no live network, no
+  real Google credentials, no real model calls.
+
+### Explicitly NOT in M3C-2
+
+- ❌ No `/review` endpoint wiring  ❌ No Cloud Run  ❌ No Firestore
+  ❌ No frontend/app wiring
+- ❌ No confidence fields/display (M3D)  ❌ No learning loop  ❌ No live job data
+- ❌ No M3A/M3B/M3C-1 contract shape changes (`ProviderPayload`,
+  `AiGenerationClient`, `PromptedAiReviewProvider`, `AiObservation`,
+  `AiReviewResult`, `AiReviewContext`, `AiReviewProvider`, `AiReviewPrompt`
+  unchanged; `buildAiReviewPrompt`, `runAiReview` and the sanitiser
+  behaviour untouched)
+- ❌ No new deterministic rules; no change to rule semantics, registry order
+  or deterministic review output
+- ❌ No retry/repair/manual sanitisation in the client — the M3A sanitiser
+  remains the only validator
+- ❌ No API keys, no secrets, no `process.env`, no browser/API-key mode
+- ❌ No dependency other than `@google/genai`
+- ❌ No changes outside `apprentice-service/` except the root
+  package/lockfile entries for `@google/genai`
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
-paths (`node:` builtins and `vitest` in tests). Enforced by
+paths (`node:` builtins and `vitest` in tests), with one deliberate M3C-2
+exception: `src/ai/vertex-generation-client.ts` may import the official Google
+Gen AI SDK (`@google/genai`) and nothing else external. Enforced by
 `src/__tests__/boundary.test.ts`.
 
 ## Scripts
