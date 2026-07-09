@@ -312,6 +312,50 @@ authoritative**.
 - ❌ No production `/review` endpoint wiring
 - ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
 
+## Milestone status — M3C-1: AI provider core (transport-agnostic)
+
+M3C-1 adds the **transport-agnostic provider core** — the half of a real
+provider that does not touch a network. It connects the M3B prompt protocol to
+an **injected model call** and hands the model's reply back to the M3A
+boundary as untrusted output. M3C-1 ships **no transport**: no network, no
+cloud SDKs, no env vars, no secrets, no new dependencies — tests use fake
+model calls only. Deterministic review is untouched and the **deterministic
+rules remain authoritative**.
+
+- **Model-call seam** (`src/ai/provider-core.ts`) — `AiModelCall`
+  (`(prompt: AiReviewPrompt) => Promise<string>`): the single injection point
+  a later milestone's real transport plugs into. The provider core never sees
+  networks, credentials or model names.
+- **Provider factory** — `createAiReviewProvider(callModel)` returns an
+  `AiReviewProvider` whose `review(context)` builds the M3B prompt for the
+  (already commercial-data-free) context, makes **exactly one** model call,
+  and returns the parsed-but-unvalidated reply. Mutates nothing; no I/O of
+  its own.
+- **Reply parsing, no repair** — `parseAiModelReply(reply)`: JSON text parses
+  to its value; anything else (prose, code-fenced JSON, scalars, a non-string
+  reply) is returned **verbatim** for the M3A sanitiser to reject. No fence
+  stripping, no trimming of surrounding prose, no retry — the sanitiser stays
+  the **only** validator, and the boundary's failure semantics hold: a
+  throwing/rejecting model call propagates → `status: 'unavailable'`; a reply
+  that isn't the locked JSON shape → `status: 'invalidOutput'`.
+- **Isolation** — `provider-core.ts` lives in `src/ai/`, so the M3A isolation
+  scan automatically covers it (no provider/cloud/network/env references).
+
+### Explicitly NOT in M3C-1
+
+- ❌ No Gemini / Vertex AI / Google Cloud / Cloud Run / Firestore
+- ❌ No real LLM calls, transport implementation, network calls, env vars,
+  secrets or API keys
+- ❌ No output repair (no code-fence stripping, no prose trimming, no retries)
+- ❌ No confidence fields/display (M3D)  ❌ No learning loop
+- ❌ No M3A/M3B contract shape changes (`AiObservation`, `AiReviewResult`,
+  `AiReviewContext`, `AiReviewProvider`, `AiReviewPrompt` unchanged)
+- ❌ No new deterministic rules  ❌ No change to deterministic rule semantics,
+  registry order, `review()`, `runAiReview()`, the sanitiser or the prompt
+- ❌ No verdict enums / pass-block aggregation
+- ❌ No production `/review` endpoint wiring
+- ❌ No changes outside `apprentice-service/`  ❌ No new dependencies
+
 ## Isolation
 
 The package depends on nothing from the host app — source imports only intra-package
